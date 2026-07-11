@@ -25,7 +25,7 @@
 
 .monthly-alert-box{
     background:linear-gradient(135deg,#dc3545,#a41220);
-    color:#fff;
+    color:#f0f0f0;
     border-radius:20px;
     padding:22px 26px;
     margin-bottom:24px;
