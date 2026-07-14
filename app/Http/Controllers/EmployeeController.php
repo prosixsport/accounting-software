@@ -9,11 +9,31 @@ use Illuminate\Support\Facades\Storage;
 class EmployeeController extends Controller
 {
     public function index()
-    {
-        $employees = Employee::latest()->get();
+{
+    $employees = Employee::latest()->get();
 
-        return view('employees.index', compact('employees'));
-    }
+    $departments = Employee::query()
+        ->whereNotNull('department')
+        ->where('department', '!=', '')
+        ->select('department')
+        ->distinct()
+        ->orderBy('department')
+        ->pluck('department');
+
+    $designations = Employee::query()
+        ->whereNotNull('designation')
+        ->where('designation', '!=', '')
+        ->select('designation')
+        ->distinct()
+        ->orderBy('designation')
+        ->pluck('designation');
+
+    return view('employees.index', compact(
+        'employees',
+        'departments',
+        'designations'
+    ));
+}
 
     public function create()
     {
@@ -68,10 +88,10 @@ class EmployeeController extends Controller
             ->with('success', 'Employee added successfully.');
     }
 
-    public function show(Employee $employee)
-    {
-        //
-    }
+   public function show(Employee $employee)
+{
+    return view('employees.show', compact('employee'));
+}
 
     public function edit(Employee $employee)
     {

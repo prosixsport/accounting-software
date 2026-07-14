@@ -29,6 +29,7 @@ class Employee extends Model
         'cnic_pictures' => 'array',
         'other_documents' => 'array',
         'joining_date' => 'date',
+        'basic_salary' => 'decimal:2',
     ];
 
     public function attendances()
@@ -45,8 +46,10 @@ class Employee extends Model
     {
         return $this->hasOne(BiometricTemplate::class);
     }
+
     public function advances()
-{
-    return $this->hasMany(EmployeeAdvance::class);
+    {
+        return $this->hasMany(EmployeeAdvance::class);
+    }
 }
-}
+

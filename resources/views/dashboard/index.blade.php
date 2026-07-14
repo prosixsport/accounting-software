@@ -23,13 +23,13 @@
 .dashboard-hero {
     position: relative;
     overflow: hidden;
-    min-height: 210px;
+    min-height:   210px;
     margin-bottom: 24px;
-    padding: 28px 30px;
+    padding: 28px  30px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 24px;
+    gap:           24px;
     border-radius: 25px;
     background:
         radial-gradient(
@@ -407,7 +407,7 @@
     color: #111827;
     font-size: 16px;
     font-weight: 900;
-}
+} 
 
 .panel-header span {
     color: #9ca3af;
@@ -785,7 +785,7 @@
 
             <div class="stat-label">Factory Expenses</div>
 
-            <div class="stat-value text-danger">
+            <div class="stat-value text-dark">
                 Rs {{ number_format($totalExpenses ?? 0, 2) }}
             </div>
 
@@ -856,7 +856,7 @@
 
             <div class="stat-label">Payments Received</div>
 
-            <div class="stat-value text-primary">
+            <div class="stat-value text-dark">
                 Rs {{ number_format($totalPayments ?? 0, 2) }}
             </div>
 
@@ -900,7 +900,7 @@
 
             <div class="stat-label">Payroll</div>
 
-            <div class="stat-value text-warning">
+            <div class="stat-value text-dark">
                 Rs {{ number_format($totalPayroll ?? 0, 2) }}
             </div>
 
@@ -922,7 +922,7 @@
 
             <div class="stat-label">Net Profit</div>
 
-            <div class="stat-value {{ ($netProfit ?? 0) >= 0 ? 'text-success' : 'text-danger' }}">
+            <div class="stat-value {{ ($netProfit ?? 0) >= 0 ? 'text-dark' : 'text-danger' }}">
                 Rs {{ number_format($netProfit ?? 0, 2) }}
             </div>
 
@@ -977,7 +977,7 @@
                         <span class="summary-label">Total Expenses</span>
                     </div>
 
-                    <span class="summary-amount text-danger">
+                    <span class="summary-amount text-dark">
                         Rs {{ number_format($totalExpenses ?? 0, 2) }}
                     </span>
 
@@ -993,7 +993,7 @@
                         <span class="summary-label">Total Payroll</span>
                     </div>
 
-                    <span class="summary-amount text-warning">
+                    <span class="summary-amount text-dark">
                         Rs {{ number_format($totalPayroll ?? 0, 2) }}
                     </span>
 
@@ -1009,7 +1009,7 @@
                         <span class="summary-label">Receivables</span>
                     </div>
 
-                    <span class="summary-amount text-info">
+                    <span class="summary-amount text-dark">
                         Rs {{ number_format($pendingReceivables ?? 0, 2) }}
                     </span>
 
@@ -1025,7 +1025,7 @@
                         <span class="summary-label">Net Profit</span>
                     </div>
 
-                    <span class="summary-amount {{ ($netProfit ?? 0) >= 0 ? 'text-success' : 'text-danger' }}">
+                    <span class="summary-amount {{ ($netProfit ?? 0) >= 0 ? 'text-dark' : 'text-danger' }}">
                         Rs {{ number_format($netProfit ?? 0, 2) }}
                     </span>
 

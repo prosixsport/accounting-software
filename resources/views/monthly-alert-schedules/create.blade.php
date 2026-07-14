@@ -13,8 +13,8 @@
     </a>
 </div>
 
-<div class="card border-0 shadow-sm">
-    <div class="card-body">
+           <div class="card border-0 shadow-sm">
+           <div class="card-body">
         <form action="{{ route('monthly-alert-schedules.store') }}" method="POST">
             @csrf
 
@@ -33,8 +33,8 @@
                     <input type="date"
                            name="alert_date"
                            class="form-control"
-value="{{ old('alert_date', now('Asia/Karachi')->format('Y-m-d')) }}"
-                           required>
+             value="{{ old('alert_date', now('Asia/Karachi')->format('Y-m-d')) }}"
+                        required>
                 </div>
 
                 <div class="col-md-3 mb-3">
@@ -42,7 +42,7 @@ value="{{ old('alert_date', now('Asia/Karachi')->format('Y-m-d')) }}"
                     <input type="time"
                            name="alert_time"
                            class="form-control"
-value="{{ old('alert_time', now('Asia/Karachi')->format('H:i')) }}"
+             value="{{ old('alert_time', now('Asia/Karachi')->format('H:i')) }}"
                            required>
                 </div>
 
@@ -86,5 +86,4 @@ value="{{ old('alert_time', now('Asia/Karachi')->format('H:i')) }}"
         </form>
     </div>
 </div>
-
 @endsection

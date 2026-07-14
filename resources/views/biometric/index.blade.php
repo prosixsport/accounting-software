@@ -32,7 +32,6 @@
                         <th width="180">Action</th>
                     </tr>
                 </thead>
-
                 <tbody>
                     @forelse($templates as $template)
                         <tr>
