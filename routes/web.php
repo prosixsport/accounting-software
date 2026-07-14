@@ -11,6 +11,7 @@ use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\ExpenseSubCategoryController;
+use App\Http\Controllers\ExpenseReceiptUploadController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PaymentController;
@@ -64,6 +65,27 @@ Route::post(
 )
     ->middleware('auth')
     ->name('logout');
+
+/*
+|--------------------------------------------------------------------------
+| Public Mobile Expense Receipt Routes
+|--------------------------------------------------------------------------
+|
+| Ye routes auth middleware se bahar hain.
+| Mobile user QR code scan karke bina login ke bill upload kar sakta hai.
+| Security ke liye har session ka random unique token hota hai.
+|
+*/
+
+Route::get(
+    '/mobile/expense-receipt/{token}',
+    [ExpenseReceiptUploadController::class, 'mobilePage']
+)->name('expense.receipt.mobile');
+
+Route::post(
+    '/mobile/expense-receipt/{token}',
+    [ExpenseReceiptUploadController::class, 'uploadFromMobile']
+)->name('expense.receipt.mobile.upload');
 
 /*
 |--------------------------------------------------------------------------
@@ -227,6 +249,30 @@ Route::middleware('auth')->group(function () {
         'salary-verifications',
         SalaryVerificationController::class
     );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Expense Mobile Receipt Sessions
+    |--------------------------------------------------------------------------
+    |
+    | Ye routes sirf logged-in computer user use karega.
+    |
+    */
+
+    Route::post(
+        '/expense-receipt/session',
+        [ExpenseReceiptUploadController::class, 'createSession']
+    )->name('expense.receipt.session');
+
+    Route::get(
+        '/expense-receipt/status/{token}',
+        [ExpenseReceiptUploadController::class, 'status']
+    )->name('expense.receipt.status');
+
+    Route::delete(
+        '/expense-receipt/{token}',
+        [ExpenseReceiptUploadController::class, 'destroy']
+    )->name('expense.receipt.destroy');
 
     /*
     |--------------------------------------------------------------------------

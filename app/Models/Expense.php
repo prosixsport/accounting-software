@@ -7,22 +7,19 @@ use Illuminate\Database\Eloquent\Model;
 class Expense extends Model
 {
     protected $fillable = [
-        'expense_date',
-        'expense_no',
-
-        'expense_category_id',
-        'expense_sub_category_id',
-
-        'category',
-
-        'account_id',
-        'vendor_name',
-        'paid_by',
-        'amount',
-        'receipt',
-        'description',
-        'payment_method',
-    ];
+    'expense_no',
+    'expense_date',
+    'expense_category_id',
+    'expense_sub_category_id',
+    'category',
+    'account_id',
+    'vendor_name',
+    'paid_by',
+    'amount',
+    'receipt',
+    'description',
+    'payment_method',
+];
 
     public function account()
     {
