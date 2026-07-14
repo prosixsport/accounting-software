@@ -196,10 +196,26 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::resource(
-        'attendances',
-        AttendanceController::class
-    );
+   /*
+|--------------------------------------------------------------------------
+| Attendance
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/employees/{employee}/attendance',
+    [AttendanceController::class, 'calendar']
+)->name('employees.attendance.calendar');
+
+Route::post(
+    '/employees/{employee}/attendance',
+    [AttendanceController::class, 'calendarSave']
+)->name('employees.attendance.save');
+
+Route::resource(
+    'attendances',
+    AttendanceController::class
+);
 
     /*
     |--------------------------------------------------------------------------
