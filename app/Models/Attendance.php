@@ -16,8 +16,9 @@ class Attendance extends Model
         'remarks',
     ];
 
+   
     public function employee()
-    {
-        return $this->belongsTo(Employee::class);
-    }
+{
+    return $this->belongsTo(Employee::class);
+}
 }

@@ -10,89 +10,109 @@ use Illuminate\Http\Request;
 class AttendanceController extends Controller
 {
     public function index(Request $request)
-    {
-        $year = (int) ($request->year ?? now()->year);
-        $month = (int) ($request->month ?? now()->month);
-        $search = trim((string) $request->search);
+{
+    $year = (int) ($request->year ?? now()->year);
+    $month = (int) ($request->month ?? now()->month);
+    $search = trim((string) $request->search);
 
-        $employees = Employee::query()
-            ->when($search, function ($query) use ($search) {
-                $query->where(function ($employeeQuery) use ($search) {
-                    $employeeQuery
-                        ->where('name', 'like', "%{$search}%")
-                        ->orWhere('employee_code', 'like', "%{$search}%")
-                        ->orWhere('department', 'like', "%{$search}%")
-                        ->orWhere('designation', 'like', "%{$search}%");
-                });
-            })
-            ->orderBy('name')
-            ->get();
+    $monthDate = Carbon::create($year, $month, 1);
 
-        $monthDate = Carbon::create($year, $month, 1);
+    $startDate = $monthDate
+        ->copy()
+        ->startOfMonth()
+        ->toDateString();
 
-        $startDate = $monthDate
-            ->copy()
-            ->startOfMonth()
-            ->toDateString();
+    $endDate = $monthDate
+        ->copy()
+        ->endOfMonth()
+        ->toDateString();
 
-        $endDate = $monthDate
-            ->copy()
-            ->endOfMonth()
-            ->toDateString();
-
-        $attendanceSummary = Attendance::query()
-            ->whereBetween('attendance_date', [
-                $startDate,
-                $endDate,
-            ])
-            ->selectRaw("
-                employee_id,
-                SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
-                SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
-                SUM(CASE WHEN status = 'leave' THEN 1 ELSE 0 END) as leave_days,
-                SUM(CASE WHEN status = 'half_day' THEN 1 ELSE 0 END) as half_days,
-                SUM(
-                    CASE
-                        WHEN status = 'present'
-                        AND source = 'manual'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) as manual_days,
-                SUM(
-                    CASE
-                        WHEN status = 'present'
-                        AND source = 'biometric'
-                        THEN 1
-                        ELSE 0
-                    END
-                ) as biometric_days
-            ")
-            ->groupBy('employee_id')
-            ->get()
-            ->keyBy('employee_id');
-
-        $months = collect(range(1, 12))
-            ->map(function ($monthNumber) {
-                return [
-                    'number' => $monthNumber,
-                    'name' => Carbon::create(
-                        now()->year,
-                        $monthNumber,
-                        1
-                    )->format('F'),
-                ];
+    $employees = Employee::query()
+        ->when($search, function ($query) use ($search) {
+            $query->where(function ($employeeQuery) use ($search) {
+                $employeeQuery
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('employee_code', 'like', "%{$search}%")
+                    ->orWhere('department', 'like', "%{$search}%")
+                    ->orWhere('designation', 'like', "%{$search}%");
             });
+        })
+        ->orderBy('name')
+        ->get();
 
-        return view('attendances.index', compact(
-            'employees',
-            'attendanceSummary',
-            'months',
-            'year',
-            'month',
-            'search'
-        ));
-    }
+    $attendances = Attendance::query()
+        ->with('employee')
+        ->whereBetween('attendance_date', [
+            $startDate,
+            $endDate,
+        ])
+        ->when($search, function ($query) use ($search) {
+            $query->whereHas('employee', function ($employeeQuery) use ($search) {
+                $employeeQuery
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('employee_code', 'like', "%{$search}%")
+                    ->orWhere('department', 'like', "%{$search}%")
+                    ->orWhere('designation', 'like', "%{$search}%");
+            });
+        })
+        ->orderByDesc('attendance_date')
+        ->orderByDesc('id')
+        ->get();
+
+    $attendanceSummary = Attendance::query()
+        ->whereBetween('attendance_date', [
+            $startDate,
+            $endDate,
+        ])
+        ->selectRaw("
+            employee_id,
+            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
+            SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
+            SUM(CASE WHEN status = 'leave' THEN 1 ELSE 0 END) as leave_days,
+            SUM(CASE WHEN status = 'half_day' THEN 1 ELSE 0 END) as half_days,
+            SUM(
+                CASE
+                    WHEN status = 'present'
+                    AND source = 'manual'
+                    THEN 1
+                    ELSE 0
+                END
+            ) as manual_days,
+            SUM(
+                CASE
+                    WHEN status = 'present'
+                    AND source = 'biometric'
+                    THEN 1
+                    ELSE 0
+                END
+            ) as biometric_days
+        ")
+        ->groupBy('employee_id')
+        ->get()
+        ->keyBy('employee_id');
+
+    $months = collect(range(1, 12))
+        ->map(function ($monthNumber) use ($year) {
+            return [
+                'number' => $monthNumber,
+                'name' => Carbon::create(
+                    $year,
+                    $monthNumber,
+                    1
+                )->format('F'),
+            ];
+        });
+
+    return view('attendances.index', compact(
+        'employees',
+        'attendances',
+        'attendanceSummary',
+        'months',
+        'year',
+        'month',
+        'search'
+    ));
+}
 
     /**
      * Employee monthly attendance calendar.
