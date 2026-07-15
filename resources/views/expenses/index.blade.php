@@ -2,278 +2,986 @@
 
 @section('content')
 
-<style>
-.exp-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
-.exp-title h3{font-size:28px;font-weight:800;margin:0}
-.exp-title small{color:#8b98a8}
-
-.cat-grid{display:flex;gap:16px;overflow-x:auto;padding:6px 2px 20px;margin-bottom:18px}
-.cat-card{min-width:155px;width:155px;height:138px;background:#fff;border:2px solid #e5e7eb;border-radius:18px;text-decoration:none;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.2s;box-shadow:0 3px 12px rgba(0,0,0,.04);padding:14px;overflow:hidden}
-.cat-card:hover{transform:translateY(-4px);border-color:#111;color:#111}
-.cat-card.active{background:#050505;color:#fff;border-color:#050505}
-
-.cat-icon{width:48px;height:48px;border-radius:14px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:12px;flex-shrink:0}
-.cat-card.active .cat-icon{background:#1f2937;color:#fff}
-
-.cat-name{font-weight:800;font-size:13px;text-align:center;width:100%;line-height:1.2;min-height:32px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
-.cat-count{font-size:12px;color:#9ca3af;margin-top:6px}
-.cat-card.active .cat-count{color:#d1d5db}
-
-.sub-box{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:20px;box-shadow:0 3px 12px rgba(0,0,0,.04);margin-bottom:22px}
-.sub-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-.sub-grid{display:flex;gap:12px;flex-wrap:wrap}
-
-.sub-pill{text-decoration:none;padding:12px 18px;border-radius:999px;border:1px solid #d1d5db;color:#111;background:#fff;font-weight:700;transition:.2s;display:flex;align-items:center;gap:8px}
-.sub-pill:hover,.sub-pill.active{background:#111;color:#fff;border-color:#111}
-
-.empty-state{background:#fff;border:1px dashed #cbd5e1;border-radius:18px;padding:55px;text-align:center;color:#64748b;margin-bottom:22px}
-.empty-state i{font-size:42px;color:#94a3b8;margin-bottom:12px;display:block}
-
-.total-card{background:#111;color:#fff;border-radius:18px;padding:22px;margin-bottom:18px}
-.exp-table-card{background:#fff;border-radius:18px;border:1px solid #e5e7eb;box-shadow:0 3px 12px rgba(0,0,0,.04);overflow:hidden}
-.exp-table-head{padding:18px 22px;border-bottom:1px solid #f1f5f9;font-weight:800}
-</style>
-
 @php
-    function expenseIcon($text) {
-        $name = strtolower($text);
+    function expenseIcon($text)
+    {
+        $name = strtolower((string) $text);
 
-        if(str_contains($name, 'gas')) return 'bi-fire';
-        if(str_contains($name, 'water')) return 'bi-droplet-fill';
-        if(str_contains($name, 'hotel') || str_contains($name, 'food') || str_contains($name, 'tea') || str_contains($name, 'lunch') || str_contains($name, 'dinner')) return 'bi-cup-hot-fill';
-        if(str_contains($name, 'worker') || str_contains($name, 'labour') || str_contains($name, 'labor')) return 'bi-people-fill';
-        if(str_contains($name, 'salary') || str_contains($name, 'payroll')) return 'bi-cash-stack';
-        if(str_contains($name, 'contractor') || str_contains($name, 'contracter') || str_contains($name, 'thekedar')) return 'bi-person-workspace';
-        if(str_contains($name, 'electric') || str_contains($name, 'bijli')) return 'bi-lightning-charge-fill';
-        if(str_contains($name, 'fuel') || str_contains($name, 'diesel') || str_contains($name, 'petrol')) return 'bi-fuel-pump-fill';
-        if(str_contains($name, 'transport') || str_contains($name, 'vehicle') || str_contains($name, 'car') || str_contains($name, 'truck')) return 'bi-truck';
-        if(str_contains($name, 'rent')) return 'bi-house-door-fill';
-        if(str_contains($name, 'internet') || str_contains($name, 'wifi')) return 'bi-wifi';
-        if(str_contains($name, 'machine') || str_contains($name, 'maintenance') || str_contains($name, 'repair')) return 'bi-gear-fill';
-        if(str_contains($name, 'office')) return 'bi-building-fill';
-        if(str_contains($name, 'print') || str_contains($name, 'printing')) return 'bi-printer-fill';
-        if(str_contains($name, 'stitch') || str_contains($name, 'sewing')) return 'bi-scissors';
-        if(str_contains($name, 'packing') || str_contains($name, 'box')) return 'bi-box-seam-fill';
-        if(str_contains($name, 'cutting')) return 'bi-rulers';
-        if(str_contains($name, 'embroidery')) return 'bi-flower1';
-        if(str_contains($name, 'security')) return 'bi-shield-lock-fill';
-        if(str_contains($name, 'clean')) return 'bi-stars';
-        if(str_contains($name, 'medical') || str_contains($name, 'medicine')) return 'bi-bandaid-fill';
-        if(str_contains($name, 'tax')) return 'bi-file-earmark-text-fill';
-        if(str_contains($name, 'bank')) return 'bi-bank';
-        if(str_contains($name, 't shirt') || str_contains($name, 'shirt') || str_contains($name, 'apparel')) return 'bi-bag-fill';
+        if (str_contains($name, 'gas')) return 'bi-fire';
+        if (str_contains($name, 'water')) return 'bi-droplet-fill';
+        if (str_contains($name, 'electric')) return 'bi-lightning-charge-fill';
+        if (str_contains($name, 'salary')) return 'bi-cash-stack';
+        if (str_contains($name, 'worker')) return 'bi-people-fill';
+        if (str_contains($name, 'contract')) return 'bi-person-workspace';
+        if (str_contains($name, 'food')) return 'bi-cup-hot-fill';
+        if (str_contains($name, 'tea')) return 'bi-cup-hot-fill';
+        if (str_contains($name, 'fuel')) return 'bi-fuel-pump-fill';
+        if (str_contains($name, 'petrol')) return 'bi-fuel-pump-fill';
+        if (str_contains($name, 'diesel')) return 'bi-fuel-pump-fill';
+        if (str_contains($name, 'transport')) return 'bi-truck';
+        if (str_contains($name, 'rent')) return 'bi-house-door-fill';
+        if (str_contains($name, 'internet')) return 'bi-wifi';
+        if (str_contains($name, 'machine')) return 'bi-gear-fill';
+        if (str_contains($name, 'repair')) return 'bi-tools';
+        if (str_contains($name, 'office')) return 'bi-building-fill';
+        if (str_contains($name, 'packing')) return 'bi-box-seam-fill';
+        if (str_contains($name, 'cutting')) return 'bi-scissors';
+        if (str_contains($name, 'stitch')) return 'bi-scissors';
 
-        return 'bi-grid-3x3-gap-fill';
+        return 'bi-wallet2';
     }
+
+    $canShowExpenses =
+        !$selectedCategory
+        || !$selectedCategoryHasSubCategories
+        || $selectedSubCategory;
 @endphp
 
-<div class="exp-top">
-    <div class="exp-title">
-        <h3>Factory Expenses</h3>
-        <small>Select category, then sub category to view expenses</small>
+<div class="expenses-page">
+
+    <div class="expense-header">
+
+        <div>
+            <h3>Factory Expenses</h3>
+            <p>Track daily, weekly, monthly and yearly factory expenses</p>
+        </div>
+
+        <a href="{{ route('expenses.create') }}"
+           class="add-expense-button">
+
+            <i class="bi bi-plus-lg"></i>
+            Add Expense
+
+        </a>
+
     </div>
 
-    <a href="{{ route('expenses.create') }}" class="btn btn-dark">
-        + Add Expense
-    </a>
-</div>
-
-@if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-@endif
-
-<div class="cat-grid">
-    @forelse($categories as $category)
-        @php
-            $catExpenseCount = \App\Models\Expense::where('expense_category_id', $category->id)->count();
-            $icon = expenseIcon($category->name);
-        @endphp
-
-        <a href="{{ route('expenses.index', ['expense_category_id' => $category->id]) }}"
-           class="cat-card {{ $selectedCategory == $category->id ? 'active' : '' }}">
-
-            <div class="cat-icon">
-                <i class="bi {{ $icon }}"></i>
-            </div>
-
-            <div class="cat-name" title="{{ $category->name }}">
-                {{ $category->name }}
-            </div>
-
-            <div class="cat-count">{{ $catExpenseCount }} expenses</div>
-        </a>
-    @empty
-        <div class="empty-state w-100">
-            <i class="bi bi-folder-x"></i>
-            <strong>No categories found</strong>
-            <div class="mt-2">
-                <a href="{{ route('expense-categories.index') }}">Add Category</a>
-            </div>
+    @if(session('success'))
+        <div class="alert alert-success">
+            {{ session('success') }}
         </div>
-    @endforelse
-</div>
+    @endif
 
-@if($selectedCategory)
+    {{-- Period Filter --}}
+    <div class="period-filter-card">
 
-    <div class="sub-box">
-        <div class="sub-head">
+        <div class="period-tabs">
+
+            @foreach([
+                'day' => 'Daily',
+                'week' => 'Weekly',
+                'month' => 'Monthly',
+                'year' => 'Yearly',
+                'all' => 'All Time',
+            ] as $value => $label)
+
+                <a href="{{ route('expenses.index', array_filter([
+                    'expense_category_id' => $selectedCategory,
+                    'expense_sub_category_id' => $selectedSubCategory,
+                    'period' => $value,
+                    'date' => $selectedDate,
+                    'month' => $selectedMonth,
+                    'year' => $selectedYear,
+                ])) }}"
+                   class="period-tab {{ $period === $value ? 'active' : '' }}">
+
+                    {{ $label }}
+
+                </a>
+
+            @endforeach
+
+        </div>
+
+        <form method="GET"
+              action="{{ route('expenses.index') }}"
+              class="period-form">
+
+            <input type="hidden"
+                   name="expense_category_id"
+                   value="{{ $selectedCategory }}">
+
+            <input type="hidden"
+                   name="expense_sub_category_id"
+                   value="{{ $selectedSubCategory }}">
+
+            <input type="hidden"
+                   name="period"
+                   value="{{ $period }}">
+
+            @if(in_array($period, ['day', 'week']))
+
+                <input type="date"
+                       name="date"
+                       value="{{ $selectedDate }}"
+                       class="form-control">
+
+            @elseif($period === 'month')
+
+                <input type="month"
+                       name="month"
+                       value="{{ $selectedMonth }}"
+                       class="form-control">
+
+            @elseif($period === 'year')
+
+                <select name="year"
+                        class="form-select">
+
+                    @for($yearOption = now()->year - 10; $yearOption <= now()->year + 1; $yearOption++)
+
+                        <option value="{{ $yearOption }}"
+                            {{ $selectedYear === $yearOption ? 'selected' : '' }}>
+
+                            {{ $yearOption }}
+
+                        </option>
+
+                    @endfor
+
+                </select>
+
+            @endif
+
+            @if($period !== 'all')
+                <button type="submit">
+                    <i class="bi bi-funnel"></i>
+                    Apply
+                </button>
+            @endif
+
+        </form>
+
+    </div>
+
+    {{-- Summary --}}
+    {{-- <div class="expense-summary-grid">
+
+        <div class="expense-summary-card main-total">
+            <i class="bi bi-wallet2"></i>
+
             <div>
-                <strong>Sub Categories</strong>
-                <div class="text-muted small">Choose sub category to show expenses</div>
+                <span>{{ $periodLabel }} Total</span>
+                <strong>Rs {{ number_format($totalExpense, 2) }}</strong>
             </div>
-
-            <a href="{{ route('expense-sub-categories.index') }}" class="btn btn-sm btn-outline-dark">
-                Manage
-            </a>
         </div>
 
-        @if($subCategories->count() > 0)
-            <div class="sub-grid">
+        <div class="expense-summary-card">
+            <i class="bi bi-receipt"></i>
+
+            <div>
+                <span>Expense Entries</span>
+                <strong>{{ $expenseCount }}</strong>
+            </div>
+        </div>
+
+        <div class="expense-summary-card">
+            <i class="bi bi-cash"></i>
+
+            <div>
+                <span>Cash</span>
+                <strong>Rs {{ number_format($cashTotal, 2) }}</strong>
+            </div>
+        </div>
+
+        <div class="expense-summary-card">
+            <i class="bi bi-bank"></i>
+
+            <div>
+                <span>Bank / Online</span>
+                <strong>Rs {{ number_format($bankTotal, 2) }}</strong>
+            </div>
+        </div>
+
+        <div class="expense-summary-card">
+            <i class="bi bi-calculator"></i>
+
+            <div>
+                <span>Average Expense</span>
+                <strong>Rs {{ number_format($averageExpense, 2) }}</strong>
+            </div>
+        </div>
+
+    </div> --}}
+
+    {{-- Categories --}}
+    <div class="category-scroll">
+
+        <a href="{{ route('expenses.index', [
+            'period' => $period,
+            'date' => $selectedDate,
+            'month' => $selectedMonth,
+            'year' => $selectedYear,
+        ]) }}"
+           class="category-card {{ !$selectedCategory ? 'active' : '' }}">
+
+            <div class="category-icon">
+                <i class="bi bi-grid-fill"></i>
+            </div>
+
+            <strong>All Expenses</strong>
+            <small>{{ $expenseCount }} records</small>
+
+        </a>
+
+        @foreach($categories as $category)
+
+            <a href="{{ route('expenses.index', [
+                'expense_category_id' => $category->id,
+                'period' => $period,
+                'date' => $selectedDate,
+                'month' => $selectedMonth,
+                'year' => $selectedYear,
+            ]) }}"
+               class="category-card {{ (int) $selectedCategory === $category->id ? 'active' : '' }}">
+
+                <div class="category-icon">
+                    <i class="bi {{ expenseIcon($category->name) }}"></i>
+                </div>
+
+                <strong title="{{ $category->name }}">
+                    {{ $category->name }}
+                </strong>
+
+                <small>
+                    {{ $category->expenses_count }} expenses
+                </small>
+
+            </a>
+
+        @endforeach
+
+    </div>
+
+    {{-- Subcategories --}}
+    @if($selectedCategory && $selectedCategoryHasSubCategories)
+
+        <div class="subcategory-card">
+
+            <div class="subcategory-header">
+
+                <div>
+                    <strong>Sub Categories</strong>
+                    <span>Select one to view expenses</span>
+                </div>
+
+                <a href="{{ route('expense-sub-categories.index') }}">
+                    <i class="bi bi-gear"></i>
+                    Manage
+                </a>
+
+            </div>
+
+            <div class="subcategory-list">
+
                 @foreach($subCategories as $subCategory)
-                    @php
-                        $subIcon = expenseIcon($subCategory->name);
-                    @endphp
 
                     <a href="{{ route('expenses.index', [
                         'expense_category_id' => $selectedCategory,
-                        'expense_sub_category_id' => $subCategory->id
+                        'expense_sub_category_id' => $subCategory->id,
+                        'period' => $period,
+                        'date' => $selectedDate,
+                        'month' => $selectedMonth,
+                        'year' => $selectedYear,
                     ]) }}"
-                       class="sub-pill {{ $selectedSubCategory == $subCategory->id ? 'active' : '' }}">
-                        <i class="bi {{ $subIcon }}"></i>
+                       class="{{ (int) $selectedSubCategory === $subCategory->id ? 'active' : '' }}">
+
+                        <i class="bi {{ expenseIcon($subCategory->name) }}"></i>
+
                         {{ $subCategory->name }}
+
+                        <span>{{ $subCategory->expenses_count }}</span>
+
                     </a>
+
                 @endforeach
+
             </div>
-        @else
-            <div class="empty-state mb-0">
-                <i class="bi bi-folder2-open"></i>
-                <strong>No sub categories found</strong>
-                <div class="small mt-1">Create sub categories for this category first.</div>
-            </div>
-        @endif
-    </div>
 
-@else
-
-    <div class="empty-state">
-        <i class="bi bi-hand-index-thumb"></i>
-        <strong>Select a category</strong>
-        <div class="small mt-1">Sub categories will appear after selecting a category.</div>
-    </div>
-
-@endif
-
-@if($selectedSubCategory)
-
-    <div class="total-card">
-        <small>Selected Sub Category Total</small>
-        <h3 class="fw-bold mt-2 mb-0">
-            Rs {{ number_format($totalExpense, 2) }}
-        </h3>
-    </div>
-
-    <div class="exp-table-card">
-        <div class="exp-table-head">
-            Expenses
         </div>
 
-        <div class="table-responsive p-3">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Date</th>
-                        <th>Expense No</th>
-                        <th>Category</th>
-                        <th>Sub Category</th>
-                        <th>Account</th>
-                        <th>Payment</th>
-                        <th>Vendor / Person</th>
-                        <th>Amount</th>
-                        <th>Receipt</th>
-                        <th width="150">Action</th>
-                    </tr>
-                </thead>
+    @elseif($selectedCategory)
 
-                <tbody>
-                    @forelse($expenses as $expense)
+        <div class="direct-category-message">
+
+            <i class="bi bi-check-circle-fill"></i>
+
+            <div>
+                <strong>Direct Category</strong>
+                <span>
+                    This category has no subcategories. Its expenses are shown directly below.
+                </span>
+            </div>
+
+        </div>
+
+    @endif
+
+    {{-- Expense Table --}}
+    @if($canShowExpenses)
+
+        <div class="expense-table-card">
+
+            <div class="expense-table-header">
+
+                <div>
+                    <h5>Expense Records</h5>
+                    <p>{{ $periodLabel }}</p>
+                </div>
+
+                <strong>
+                    Rs {{ number_format($totalExpense, 2) }}
+                </strong>
+
+            </div>
+
+            <div class="table-responsive">
+
+                <table class="table align-middle mb-0">
+
+                    <thead>
                         <tr>
-                            <td>{{ date('d M Y', strtotime($expense->expense_date)) }}</td>
-                            <td>{{ $expense->expense_no }}</td>
+                            <th>Date</th>
+                            <th>Expense</th>
+                            <th>Category</th>
+                            <th>Payment</th>
+                            <th>Vendor</th>
+                            <th>Amount</th>
+                            <th>Receipt</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
 
-                            <td>
-                                <span class="badge bg-dark">
-                                    {{ $expense->category?->name ?? $expense->category ?? '-' }}
-                                </span>
-                            </td>
+                    <tbody>
 
-                            <td>{{ $expense->subCategory->name ?? '-' }}</td>
-                            <td>{{ $expense->account->name ?? '-' }}</td>
-                            <td>{{ ucfirst($expense->payment_method) }}</td>
-                            <td>{{ $expense->vendor_name ?? '-' }}</td>
+                        @forelse($expenses as $expense)
 
-                            <td>
-                                <strong class="text-danger">
-                                    Rs {{ number_format($expense->amount, 2) }}
-                                </strong>
-                            </td>
+                            <tr>
+                                <td>
+                                    <strong>
+                                        {{ \Carbon\Carbon::parse($expense->expense_date)->format('d M Y') }}
+                                    </strong>
 
-                            <td>
-                                @if($expense->receipt)
-                                    @php
-                                        $ext = strtolower(pathinfo($expense->receipt, PATHINFO_EXTENSION));
-                                    @endphp
+                                    <small>
+                                        {{ \Carbon\Carbon::parse($expense->expense_date)->format('l') }}
+                                    </small>
+                                </td>
 
-                                    @if(in_array($ext, ['jpg','jpeg','png','webp','gif']))
-                                        <a href="{{ asset('storage/'.$expense->receipt) }}" target="_blank">
-                                            <img src="{{ asset('storage/'.$expense->receipt) }}"
-                                                 width="45"
-                                                 height="45"
-                                                 class="rounded border"
-                                                 style="object-fit:cover;">
-                                        </a>
-                                    @else
-                                        <a href="{{ asset('storage/'.$expense->receipt) }}"
-                                           target="_blank"
-                                           class="btn btn-sm btn-outline-primary">
-                                            View PDF
-                                        </a>
+                                <td>
+                                    <strong>{{ $expense->expense_no }}</strong>
+
+                                    <small>
+                                        {{ \Illuminate\Support\Str::limit($expense->description, 45) ?: 'No description' }}
+                                    </small>
+                                </td>
+
+                                <td>
+                                    <span class="category-badge">
+                                        {{ $expense->category?->name ?? $expense->category ?? '-' }}
+                                    </span>
+
+                                    @if($expense->subCategory)
+                                        <small>
+                                            {{ $expense->subCategory->name }}
+                                        </small>
                                     @endif
-                                @else
-                                    -
-                                @endif
-                            </td>
+                                </td>
 
-                            <td>
-                                <a href="{{ route('expenses.edit', $expense->id) }}"
-                                   class="btn btn-warning btn-sm">
-                                    Edit
-                                </a>
+                                <td>
+                                    <span class="payment-badge">
+                                        <i class="bi bi-credit-card"></i>
+                                        {{ ucfirst($expense->payment_method) }}
+                                    </span>
+                                </td>
 
-                                <form action="{{ route('expenses.destroy', $expense->id) }}"
-                                      method="POST"
-                                      class="d-inline">
-                                    @csrf
-                                    @method('DELETE')
+                                <td>
+                                    {{ $expense->vendor_name ?: '-' }}
+                                </td>
 
-                                    <button class="btn btn-danger btn-sm"
-                                            onclick="return confirm('Delete expense?')">
-                                        Delete
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="10" class="text-center text-muted py-4">
-                                No expenses found in this sub category.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+                                <td>
+                                    <strong class="expense-amount">
+                                        Rs {{ number_format($expense->amount, 2) }}
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    @if($expense->receipt)
+
+                                        @php
+                                            $extension = strtolower(
+                                                pathinfo(
+                                                    $expense->receipt,
+                                                    PATHINFO_EXTENSION
+                                                )
+                                            );
+                                        @endphp
+
+                                        <a href="{{ asset('storage/' . $expense->receipt) }}"
+                                           target="_blank"
+                                           class="receipt-button">
+
+                                            @if(in_array($extension, [
+                                                'jpg',
+                                                'jpeg',
+                                                'png',
+                                                'webp',
+                                            ]))
+                                                <img src="{{ asset('storage/' . $expense->receipt) }}"
+                                                     alt="Receipt">
+                                            @else
+                                                <i class="bi bi-file-earmark-pdf"></i>
+                                            @endif
+
+                                        </a>
+
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+
+                                <td>
+                               <div class="expense-actions">
+
+    {{-- View Expense Slip --}}
+    <a href="{{ route('expenses.show', $expense->id) }}"
+       class="view-expense-action"
+       title="View Expense Slip">
+
+        <i class="bi bi-eye"></i>
+
+    </a>
+
+    {{-- Edit Expense --}}
+    <a href="{{ route('expenses.edit', $expense->id) }}"
+       class="edit-expense-action"
+       title="Edit Expense">
+
+        <i class="bi bi-pencil-square"></i>
+
+    </a>
+
+    {{-- Delete Expense --}}
+    <form action="{{ route('expenses.destroy', $expense->id) }}"
+          method="POST">
+
+        @csrf
+        @method('DELETE')
+
+        <button type="submit"
+                class="delete-expense-action"
+                onclick="return confirm('Delete this expense?')"
+                title="Delete Expense">
+
+            <i class="bi bi-trash3"></i>
+
+        </button>
+
+    </form>
+
+</div>
+                                </td>
+                            </tr>
+
+                        @empty
+
+                            <tr>
+                                <td colspan="8">
+
+                                    <div class="expense-empty-state">
+                                        <i class="bi bi-folder2-open"></i>
+
+                                        <strong>No expenses found</strong>
+
+                                        <span>
+                                            No expense entries exist for the selected period.
+                                        </span>
+                                    </div>
+
+                                </td>
+                            </tr>
+
+                        @endforelse
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
         </div>
-    </div>
 
-@endif
+    @else
+
+        <div class="expense-empty-state select-subcategory">
+            <i class="bi bi-hand-index-thumb"></i>
+
+            <strong>Select a subcategory</strong>
+
+            <span>
+                This category contains subcategories. Select one above to view its expenses.
+            </span>
+        </div>
+
+    @endif
+
+</div>
+
+<style>
+:root {
+    --expense-black: #111111;
+    --expense-white: #ffffff;
+    --expense-border: #e4e6eb;
+    --expense-light: #f7f8fa;
+    --expense-muted: #737b88;
+}
+
+.expense-header,
+.period-filter-card,
+.expense-table-header,
+.subcategory-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.expense-header {
+    margin-bottom: 20px;
+}
+
+.expense-header h3 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 900;
+}
+
+.expense-header p,
+.expense-table-header p {
+    margin: 3px 0 0;
+    color: var(--expense-muted);
+    font-size: 11px;
+}
+
+.add-expense-button {
+    padding: 10px 15px;
+    border-radius: 8px;
+    color: white;
+    background: #111;
+    text-decoration: none;
+    font-weight: 800;
+}
+
+.period-filter-card {
+    margin-bottom: 16px;
+    padding: 12px;
+    gap: 15px;
+    border: 1px solid var(--expense-border);
+    border-radius: 12px;
+    background: white;
+}
+
+.period-tabs,
+.period-form {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.period-tab {
+    padding: 8px 12px;
+    border: 1px solid var(--expense-border);
+    border-radius: 7px;
+    color: #555;
+    background: var(--expense-light);
+    text-decoration: none;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.period-tab.active {
+    border-color: #111;
+    color: white;
+    background: #111;
+}
+
+.period-form .form-control,
+.period-form .form-select {
+    min-width: 145px;
+    font-size: 11px;
+}
+
+.period-form button {
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 7px;
+    color: white;
+    background: #111;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.expense-summary-grid {
+    margin-bottom: 17px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+}
+
+.expense-summary-card {
+    min-height: 80px;
+    padding: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--expense-border);
+    border-radius: 11px;
+    background: white;
+}
+
+.expense-summary-card > i {
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    color: white;
+    background: #111;
+}
+
+.expense-summary-card span,
+.expense-summary-card strong {
+    display: block;
+}
+
+.expense-summary-card span {
+    color: var(--expense-muted);
+    font-size: 9px;
+}
+
+.expense-summary-card strong {
+    margin-top: 2px;
+    font-size: 14px;
+}
+
+.main-total {
+    color: white;
+    background: #111;
+}
+
+.main-total > i {
+    color: #111;
+    background: white;
+}
+
+.main-total span {
+    color: #ccc;
+}
+
+.category-scroll {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+}
+
+.category-card {
+    min-width: 135px;
+    width: 135px;
+    height: 120px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--expense-border);
+    border-radius: 13px;
+    color: #111;
+    background: white;
+    text-decoration: none;
+    text-align: center;
+}
+
+.category-card.active {
+    border-color: #111;
+    color: white;
+    background: #111;
+}
+
+.category-icon {
+    width: 39px;
+    height: 39px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background: var(--expense-light);
+    font-size: 17px;
+}
+
+.category-card.active .category-icon {
+    color: #111;
+    background: white;
+}
+
+.category-card strong {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.category-card small {
+    margin-top: 4px;
+    color: var(--expense-muted);
+    font-size: 8px;
+}
+
+.category-card.active small {
+    color: #ccc;
+}
+
+.subcategory-card,
+.direct-category-message,
+.expense-table-card,
+.expense-empty-state {
+    border: 1px solid var(--expense-border);
+    border-radius: 13px;
+    background: white;
+}
+
+.subcategory-card {
+    margin-bottom: 16px;
+    padding: 15px;
+}
+
+.subcategory-header {
+    margin-bottom: 12px;
+}
+
+.subcategory-header span {
+    display: block;
+    color: var(--expense-muted);
+    font-size: 9px;
+}
+
+.subcategory-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.subcategory-list a {
+    padding: 8px 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--expense-border);
+    border-radius: 50px;
+    color: #111;
+    background: var(--expense-light);
+    text-decoration: none;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+.subcategory-list a.active {
+    color: white;
+    background: #111;
+}
+
+.subcategory-list span {
+    min-width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: white;
+    background: #555;
+    font-size: 8px;
+}
+
+.direct-category-message {
+    margin-bottom: 16px;
+    padding: 13px;
+    display: flex;
+    gap: 10px;
+    color: #146c43;
+    background: #f2fff8;
+}
+
+.direct-category-message span {
+    display: block;
+    font-size: 9px;
+}
+
+.expense-table-card {
+    overflow: hidden;
+}
+
+.expense-table-header {
+    padding: 15px 18px;
+    border-bottom: 1px solid var(--expense-border);
+}
+
+.expense-table-header h5 {
+    margin: 0;
+    font-weight: 900;
+}
+
+.expense-table-header > strong {
+    font-size: 18px;
+}
+
+.expense-table-card th {
+    padding: 11px 14px;
+    background: var(--expense-light);
+    font-size: 9px;
+    text-transform: uppercase;
+}
+
+.expense-table-card td {
+    padding: 12px 14px;
+    font-size: 10px;
+}
+
+.expense-table-card td small {
+    display: block;
+    margin-top: 3px;
+    color: var(--expense-muted);
+}
+
+.category-badge,
+.payment-badge {
+    padding: 5px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 50px;
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.category-badge {
+    color: white;
+    background: #111;
+}
+
+.payment-badge {
+    border: 1px solid var(--expense-border);
+    background: var(--expense-light);
+}
+
+.expense-amount {
+    color: #dc3545;
+}
+
+.receipt-button img,
+.receipt-button {
+    width: 38px;
+    height: 38px;
+}
+
+.receipt-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid var(--expense-border);
+    border-radius: 7px;
+    color: #dc3545;
+    text-decoration: none;
+}
+
+.receipt-button img {
+    object-fit: cover;
+}
+
+.expense-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.expense-actions a,
+.expense-actions button {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #111;
+    border-radius: 7px;
+    color: #111;
+    background: white;
+}
+
+.expense-actions button {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.expense-empty-state {
+    padding: 45px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--expense-muted);
+    text-align: center;
+}
+
+.expense-empty-state > i {
+    margin-bottom: 8px;
+    color: #111;
+    font-size: 30px;
+}
+
+.expense-empty-state span {
+    margin-top: 4px;
+    font-size: 10px;
+}
+
+.select-subcategory {
+    margin-top: 16px;
+}
+
+@media(max-width: 1199px) {
+    .expense-summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media(max-width: 767px) {
+    .expense-header,
+    .period-filter-card {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .period-tabs {
+        overflow-x: auto;
+    }
+
+    .period-form {
+        width: 100%;
+    }
+
+    .period-form .form-control,
+    .period-form .form-select,
+    .period-form button {
+        flex: 1;
+    }
+
+    .expense-summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .expense-table-card table {
+        min-width: 950px;
+    }
+}
+</style>
 
 @endsection

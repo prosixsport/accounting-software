@@ -421,130 +421,79 @@
 </div>
 
 <style>
-    .receipt-section {
-        padding: 18px;
-        border: 1px solid #e2e6ea;
-        border-radius: 14px;
-        background: #fafbfc;
-    }
+.receipt-section {
+    padding: 14px;
+    overflow: hidden;
+    border: 1px solid #e1e4e8;
+    border-radius: 13px;
+    background: #f8f9fa;
+}
 
-    .upload-option-card {
-        padding: 20px;
-        border: 1px solid #e0e5eb;
-        border-radius: 14px;
-        background: #ffffff;
-    }
+.upload-option-card {
+    min-height: 190px;
+    padding: 17px;
+    overflow: hidden;
+    border: 1px solid #e0e4e8;
+    border-radius: 11px;
+    background: #ffffff;
+}
 
-    .upload-option-card.mobile-card {
-        border-color: rgba(13, 110, 253, 0.25);
-        background: rgba(13, 110, 253, 0.025);
-    }
+.qr-section,
+.receipt-preview-wrapper {
+    margin-top: 12px;
+    padding: 14px;
+    overflow: hidden;
+    border: 1px solid #dfe3e8;
+    border-radius: 11px;
+    background: #ffffff;
+}
 
-    .upload-option-icon {
-        width: 48px;
-        height: 48px;
-        margin-bottom: 14px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 21px;
-        color: #0d6efd;
-        background: rgba(13, 110, 253, 0.1);
-    }
+.qr-code-box {
+    width: 180px;
+    height: 180px;
+    min-width: 180px;
+    min-height: 180px;
+    padding: 8px;
+    overflow: hidden;
+    border: 1px solid #e2e5e9;
+    border-radius: 10px;
+    background: #ffffff;
+}
 
-    .qr-section {
-        margin-top: 20px;
-        padding: 22px;
-        border: 1px solid #d9e4f5;
-        border-radius: 14px;
-        background: #ffffff;
-    }
+.qr-code-box img,
+.qr-code-box canvas {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+}
 
+.receipt-preview-wrapper {
+    max-width: 100%;
+}
+
+.receipt-preview-image {
+    width: 100%;
+    max-width: 100%;
+    height: 310px;
+    max-height: 310px;
+    object-fit: contain;
+    border: 1px solid #e1e5e9;
+    border-radius: 10px;
+    background: #f8f9fa;
+}
+
+@media(max-width: 767px) {
     .qr-code-box {
-        display: inline-flex;
-        min-width: 230px;
-        min-height: 230px;
-        padding: 14px;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid #e1e5e9;
-        border-radius: 14px;
-        background: #ffffff;
-    }
-
-    .qr-code-box img,
-    .qr-code-box canvas {
-        max-width: 100%;
-        height: auto;
-    }
-
-    .mobile-status {
-        padding: 13px 15px;
-        border-radius: 10px;
-        font-weight: 600;
-    }
-
-    .waiting-status {
-        color: #664d03;
-        border: 1px solid #ffecb5;
-        background: #fff3cd;
-    }
-
-    .success-status {
-        color: #0f5132;
-        border: 1px solid #badbcc;
-        background: #d1e7dd;
-    }
-
-    .error-status {
-        color: #842029;
-        border: 1px solid #f5c2c7;
-        background: #f8d7da;
-    }
-
-    .receipt-preview-wrapper {
-        margin-top: 20px;
-        padding: 18px;
-        border: 1px solid #badbcc;
-        border-radius: 14px;
-        background: #f4fff8;
-    }
-
-    .receipt-preview-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 15px;
-        margin-bottom: 15px;
+        width: 155px;
+        height: 155px;
+        min-width: 155px;
+        min-height: 155px;
     }
 
     .receipt-preview-image {
-        display: block;
-        width: 100%;
-        max-width: 650px;
-        max-height: 600px;
-        margin: 0 auto;
-        object-fit: contain;
-        border-radius: 12px;
-        border: 1px solid #dde3e8;
-        background: #ffffff;
+        height: 230px;
     }
-
-    .pdf-preview {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        padding: 22px;
-        border-radius: 12px;
-        border: 1px solid #e1e5ea;
-        background: #ffffff;
-    }
-
-    .pdf-preview i {
-        font-size: 44px;
-        color: #dc3545;
-    }
+}
 </style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -660,8 +609,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             new QRCode(qrCode, {
                 text: result.mobile_url,
-                width: 210,
-                height: 210,
+                width: 160,
+height: 160,
                 correctLevel: QRCode.CorrectLevel.H
             });
 

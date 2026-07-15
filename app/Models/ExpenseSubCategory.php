@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ExpenseSubCategory extends Model
 {
@@ -12,8 +14,29 @@ class ExpenseSubCategory extends Model
         'status',
     ];
 
-    public function category()
+    protected $casts = [
+        'status' => 'boolean',
+    ];
+
+    /**
+     * Subcategory ki main category.
+     */
+    public function category(): BelongsTo
     {
-        return $this->belongsTo(ExpenseCategory::class, 'expense_category_id');
+        return $this->belongsTo(
+            ExpenseCategory::class,
+            'expense_category_id'
+        );
+    }
+
+    /**
+     * Subcategory ke tamam expenses.
+     */
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(
+            Expense::class,
+            'expense_sub_category_id'
+        );
     }
 }
