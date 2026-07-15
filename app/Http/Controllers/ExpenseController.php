@@ -122,6 +122,7 @@ class ExpenseController extends Controller
         $expenseQuery = Expense::query()
             ->with([
                 'account',
+                'paidFromAccount',
                 'category',
                 'subCategory',
             ]);
@@ -398,10 +399,24 @@ class ExpenseController extends Controller
      */
     public function create()
     {
+        /*
+         * Expense accounts:
+         * Gas, electricity, tea, raw material etc.
+         */
         $accounts = Account::query()
             ->where('type', 'expense')
             ->where('is_active', true)
-            ->orderBy('name')
+            ->orderBy('code')
+            ->get();
+
+        /*
+         * Paid From accounts:
+         * Cash on Hand, Bank Account etc.
+         */
+        $paidFromAccounts = Account::query()
+            ->where('type', 'asset')
+            ->where('is_active', true)
+            ->orderBy('code')
             ->get();
 
         $categories = ExpenseCategory::query()
@@ -428,6 +443,7 @@ class ExpenseController extends Controller
             'expenses.create',
             compact(
                 'accounts',
+                'paidFromAccounts',
                 'categories'
             )
         );
@@ -495,6 +511,9 @@ class ExpenseController extends Controller
                     $validated['account_id']
                     ?? null,
 
+                'paid_from_account_id' =>
+                    $validated['paid_from_account_id'],
+
                 'vendor_name' =>
                     $validated['vendor_name']
                     ?? null,
@@ -549,6 +568,7 @@ class ExpenseController extends Controller
     {
         $expense->load([
             'account',
+            'paidFromAccount',
             'category',
             'subCategory',
         ]);
@@ -567,7 +587,13 @@ class ExpenseController extends Controller
         $accounts = Account::query()
             ->where('type', 'expense')
             ->where('is_active', true)
-            ->orderBy('name')
+            ->orderBy('code')
+            ->get();
+
+        $paidFromAccounts = Account::query()
+            ->where('type', 'asset')
+            ->where('is_active', true)
+            ->orderBy('code')
             ->get();
 
         $categories = ExpenseCategory::query()
@@ -592,6 +618,7 @@ class ExpenseController extends Controller
             compact(
                 'expense',
                 'accounts',
+                'paidFromAccounts',
                 'categories'
             )
         );
@@ -657,6 +684,9 @@ class ExpenseController extends Controller
             'account_id' =>
                 $validated['account_id']
                 ?? null,
+
+            'paid_from_account_id' =>
+                $validated['paid_from_account_id'],
 
             'vendor_name' =>
                 $validated['vendor_name']
@@ -773,7 +803,23 @@ class ExpenseController extends Controller
             'account_id' => [
                 'nullable',
                 'integer',
-                'exists:accounts,id',
+                Rule::exists('accounts', 'id')
+                    ->where(function ($query) {
+                        return $query
+                            ->where('type', 'expense')
+                            ->where('is_active', true);
+                    }),
+            ],
+
+            'paid_from_account_id' => [
+                'required',
+                'integer',
+                Rule::exists('accounts', 'id')
+                    ->where(function ($query) {
+                        return $query
+                            ->where('type', 'asset')
+                            ->where('is_active', true);
+                    }),
             ],
 
             'amount' => [

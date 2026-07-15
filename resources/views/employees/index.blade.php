@@ -51,7 +51,7 @@
     @endif
 
     {{-- SUMMARY CARDS --}}
-    <div class="row g-3 mb-4">
+    {{-- <div class="row g-3 mb-4">
 
         <div class="col-xl-3 col-md-6">
 
@@ -133,7 +133,7 @@
 
         </div>
 
-    </div>
+    </div> --}}
 
     {{-- DEPARTMENT QUICK FILTERS --}}
     <div class="employee-filter-card mb-3">

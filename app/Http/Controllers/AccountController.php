@@ -26,7 +26,7 @@ class AccountController extends Controller
             'type' => 'required',
             'opening_balance' => 'nullable|numeric',
         ]);
- 
+
         Account::create([
             'code' => $request->code,
             'name' => $request->name,
@@ -44,24 +44,26 @@ class AccountController extends Controller
     }
 
     public function update(Request $request, Account $account)
-    {
-        $request->validate([
-            'code' => 'required|unique:accounts,code,' . $account->id,
-            'name' => 'required|string|max:255',
-            'type' => 'required',
-            'opening_balance' => 'nullable|numeric',
-        ]);
+{
+    $validated = $request->validate([
+        'code' => 'required|string|max:50|unique:accounts,code,' . $account->id,
+        'name' => 'required|string|max:255',
+        'type' => 'required|in:asset,liability,equity,income,expense',
+        'opening_balance' => 'nullable|numeric',
+    ]);
 
-        $account->update([
-            'code' => $request->code,
-            'name' => $request->name,
-            'type' => $request->type,
-            'opening_balance' => $request->opening_balance ?? 0,
-            'is_active' => $request->has('is_active'),
-        ]);
+    $account->update([
+        'code' => $validated['code'],
+        'name' => $validated['name'],
+        'type' => $validated['type'],
+        'opening_balance' => $validated['opening_balance'] ?? 0,
+        'is_active' => $request->boolean('is_active'),
+    ]);
 
-        return redirect('/accounts')->with('success', 'Account updated successfully.');
-    }
+    return redirect()
+        ->route('accounts.index')
+        ->with('success', 'Account updated successfully.');
+}
 
     public function destroy(Account $account)
     {

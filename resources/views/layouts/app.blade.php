@@ -698,6 +698,9 @@
     $salaryWorkerMenuOpen =
         request()->routeIs('employees.*')
         || request()->routeIs('payrolls.*');
+
+    $ownerFundsMenuOpen =
+        request()->routeIs('owner-funds.*');
 @endphp
 
 <div class="app-layout">
@@ -881,6 +884,22 @@
 
                     <i class="bi bi-journal-bookmark-fill"></i>
                     <span>Chart of Accounts</span>
+                </a>
+            @endif
+
+            {{-- Owner Funds --}}
+            @if(
+                $user
+                && (
+                    $user->role === 'super_admin'
+                    || $can('owner_funds')
+                )
+            )
+                <a href="{{ route('owner-funds.index') }}"
+                   class="side-link {{ $ownerFundsMenuOpen ? 'active' : '' }}">
+
+                    <i class="bi bi-cash-stack"></i>
+                    <span>Owner Funds</span>
                 </a>
             @endif
 
