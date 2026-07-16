@@ -1152,6 +1152,227 @@
         grid-template-columns: 1fr 1fr;
     }
 }
+
+
+/* =========================================================
+   COMPACT EQUAL-HEIGHT DESKTOP LAYOUT
+   Both panels stay the same height and the upload panel
+   remains inside the right form card height.
+========================================================= */
+
+#employeeCreateForm > .row {
+    align-items: stretch;
+}
+
+#employeeCreateForm > .row > [class*="col-"] {
+    display: flex;
+}
+
+.employee-upload-card,
+.employee-form-card {
+    width: 100%;
+    height: 100%;
+}
+
+.employee-upload-card {
+    display: grid;
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+}
+
+.employee-form-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.employee-form-card-body {
+    flex: 1;
+}
+
+/* Compact left upload sections */
+.upload-section {
+    min-height: 0;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+}
+
+.upload-section-header {
+    margin-bottom: 10px;
+}
+
+.upload-section-header h5 {
+    font-size: 14px;
+}
+
+.upload-section-header p {
+    margin-top: 2px;
+    font-size: 10px;
+}
+
+.upload-header-icon {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    font-size: 16px;
+}
+
+.employee-upload-box {
+    min-height: 96px;
+    padding: 12px 14px;
+    flex: 1;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 11px;
+    row-gap: 2px;
+    align-content: center;
+    justify-content: initial;
+    text-align: left;
+}
+
+.employee-upload-icon {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    width: 42px;
+    height: 42px;
+    margin: 0;
+    font-size: 18px;
+}
+
+.employee-upload-box strong {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.employee-upload-box > span:not(.employee-upload-button) {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    font-size: 9px;
+}
+
+.employee-upload-button {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+    margin: 0;
+    padding: 7px 9px;
+    white-space: nowrap;
+    font-size: 9px !important;
+}
+
+/* Selected files remain inside the card instead of increasing its height */
+.preview-grid,
+.documents-preview-list {
+    margin-top: 9px !important;
+    max-height: 82px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.preview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.preview-image-card {
+    height: 72px;
+    border-radius: 8px;
+}
+
+.preview-image-label {
+    right: 4px;
+    bottom: 4px;
+    left: 4px;
+    padding: 3px 4px;
+    font-size: 7px;
+}
+
+.document-preview-row {
+    padding: 6px 7px;
+    gap: 7px;
+}
+
+.document-preview-icon {
+    flex-basis: 30px;
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+}
+
+/* Slightly tighter form so the complete page fits cleanly */
+.employee-create-header {
+    margin-bottom: 18px;
+}
+
+.employee-form-card-header {
+    min-height: 72px;
+    padding: 15px 20px;
+}
+
+.employee-form-card-body {
+    padding: 18px 20px;
+}
+
+.employee-form-card-body .row {
+    --bs-gutter-y: 0.78rem;
+}
+
+.employee-input {
+    min-height: 44px;
+}
+
+.employee-textarea {
+    min-height: 88px;
+    max-height: 110px;
+}
+
+.employee-form-footer {
+    padding: 13px 20px;
+}
+
+@media (min-width: 992px) {
+    .employee-create-page {
+        padding-bottom: 8px;
+    }
+}
+
+@media (max-width: 1199px) and (min-width: 992px) {
+    .employee-upload-box {
+        grid-template-columns: 38px minmax(0, 1fr);
+    }
+
+    .employee-upload-button {
+        grid-column: 2;
+        grid-row: 3;
+        justify-self: start;
+        margin-top: 5px;
+    }
+
+    .employee-upload-icon {
+        width: 38px;
+        height: 38px;
+    }
+}
+
+@media (max-width: 991px) {
+    #employeeCreateForm > .row > [class*="col-"] {
+        display: block;
+    }
+
+    .employee-upload-card {
+        display: block;
+    }
+
+    .employee-upload-box {
+        min-height: 110px;
+    }
+}
+
 </style>
 
 <script>

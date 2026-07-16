@@ -98,58 +98,105 @@ class EmployeeController extends Controller
         return view('employees.edit', compact('employee'));
     }
 
-    public function update(Request $request, Employee $employee)
-    {
-        $request->validate([
-            'name' => 'required',
-            'basic_salary' => 'required|numeric',
+  public function update(Request $request, Employee $employee)
+{
+    $request->validate([
+        'name' => 'required',
+        'basic_salary' => 'required|numeric',
 
-            'pictures.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
-            'cnic_pictures.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
-            'other_documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:8192',
-        ]);
+        'pictures.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+        'cnic_pictures.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+        'other_documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:8192',
+    ]);
 
-        $pictures = $employee->pictures ?? [];
-        $cnicPictures = $employee->cnic_pictures ?? [];
-        $otherDocuments = $employee->other_documents ?? [];
+    $pictures = is_array($employee->pictures)
+        ? $employee->pictures
+        : (json_decode($employee->pictures ?? '[]', true) ?? []);
 
-        $pictures = array_merge(
-            $pictures,
-            $this->uploadMultipleFiles($request->file('pictures'), 'employees/pictures')
+    $cnicPictures = is_array($employee->cnic_pictures)
+        ? $employee->cnic_pictures
+        : (json_decode($employee->cnic_pictures ?? '[]', true) ?? []);
+
+    $otherDocuments = is_array($employee->other_documents)
+        ? $employee->other_documents
+        : (json_decode($employee->other_documents ?? '[]', true) ?? []);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Replace Employee Pictures
+    |--------------------------------------------------------------------------
+    */
+
+    if ($request->hasFile('pictures')) {
+
+        foreach ($pictures as $oldPicture) {
+            Storage::disk('public')->delete($oldPicture);
+        }
+
+        $pictures = $this->uploadMultipleFiles(
+            $request->file('pictures'),
+            'employees/pictures'
         );
-
-        $cnicPictures = array_merge(
-            $cnicPictures,
-            $this->uploadMultipleFiles($request->file('cnic_pictures'), 'employees/cnic-pictures')
-        );
-
-        $otherDocuments = array_merge(
-            $otherDocuments,
-            $this->uploadMultipleFiles($request->file('other_documents'), 'employees/other-documents')
-        );
-
-        $employee->update([
-            'name' => $request->name,
-            'father_name' => $request->father_name,
-            'phone' => $request->phone,
-            'email' => $request->email,
-            'cnic' => $request->cnic,
-            'department' => $request->department,
-            'designation' => $request->designation,
-            'basic_salary' => $request->basic_salary,
-            'joining_date' => $request->joining_date,
-            'status' => $request->status ?? 'active',
-            'address' => $request->address,
-
-            'pictures' => $pictures,
-            'cnic_pictures' => $cnicPictures,
-            'other_documents' => $otherDocuments,
-        ]);
-
-        return redirect()
-            ->route('employees.index')
-            ->with('success', 'Employee updated successfully.');
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Replace CNIC Pictures
+    |--------------------------------------------------------------------------
+    */
+
+    if ($request->hasFile('cnic_pictures')) {
+
+        foreach ($cnicPictures as $oldCnicPicture) {
+            Storage::disk('public')->delete($oldCnicPicture);
+        }
+
+        $cnicPictures = $this->uploadMultipleFiles(
+            $request->file('cnic_pictures'),
+            'employees/cnic-pictures'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Replace Other Documents
+    |--------------------------------------------------------------------------
+    */
+
+    if ($request->hasFile('other_documents')) {
+
+        foreach ($otherDocuments as $oldDocument) {
+            Storage::disk('public')->delete($oldDocument);
+        }
+
+        $otherDocuments = $this->uploadMultipleFiles(
+            $request->file('other_documents'),
+            'employees/other-documents'
+        );
+    }
+
+    $employee->update([
+        'name' => $request->name,
+        'father_name' => $request->father_name,
+        'phone' => $request->phone,
+        'email' => $request->email,
+        'cnic' => $request->cnic,
+        'department' => $request->department,
+        'designation' => $request->designation,
+        'basic_salary' => $request->basic_salary,
+        'joining_date' => $request->joining_date,
+        'status' => $request->status ?? 'active',
+        'address' => $request->address,
+
+        'pictures' => $pictures,
+        'cnic_pictures' => $cnicPictures,
+        'other_documents' => $otherDocuments,
+    ]);
+
+    return redirect()
+        ->route('employees.show', $employee->id)
+        ->with('success', 'Employee updated successfully.');
+}
 
     public function destroy(Employee $employee)
     {

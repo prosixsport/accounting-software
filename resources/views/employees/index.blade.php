@@ -554,16 +554,7 @@
 
                                     </a>
 
-                                    {{-- Attendance Calendar --}}
-                                    <a href="{{ route('employees.attendance.calendar', $employee->id) }}"
-                                       class="employee-action-btn attendance-action"
-                                       title="Attendance Calendar"
-                                       data-bs-toggle="tooltip"
-                                       data-bs-placement="top">
-
-                                        <i class="bi bi-calendar2-check"></i>
-
-                                    </a>
+                                  
 
                                     {{-- Delete --}}
                                     <form action="{{ route('employees.destroy', $employee->id) }}"
@@ -1025,8 +1016,8 @@
 }
 
 .employee-avatar {
-    width: 52px;
-    height: 52px;
+    width: 45px;
+    height: 55px;
     object-fit: cover;
     border: 2px solid var(--employee-white);
     border-radius: 50%;
@@ -1037,8 +1028,8 @@
 
 .status-dot {
     position: absolute;
-    right: 1px;
-    bottom: 2px;
+    right: 3px;
+    bottom: 1px;
     width: 12px;
     height: 12px;
     border: 2px solid var(--employee-white);

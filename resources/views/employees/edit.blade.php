@@ -174,13 +174,13 @@
                                 <i class="bi bi-camera"></i>
                             </div>
 
-                            <strong>
-                                Upload New Pictures
-                            </strong>
+                           <strong>
+    Replace Employee Pictures
+</strong>
 
-                            <span>
-                                Select one or multiple images
-                            </span>
+<span>
+    Selecting new pictures will remove old pictures
+</span>
 
                             <span class="employee-upload-button">
                                 Choose Pictures
@@ -317,12 +317,12 @@
                             </div>
 
                             <strong>
-                                Upload New CNIC Images
-                            </strong>
+    Replace CNIC Pictures
+</strong>
 
-                            <span>
-                                First image front and second image back
-                            </span>
+<span>
+    New CNIC images will replace existing CNIC images
+</span>
 
                             <span class="employee-upload-button">
                                 Choose CNIC Pictures
@@ -486,13 +486,13 @@
                                 <i class="bi bi-file-earmark-arrow-up"></i>
                             </div>
 
-                            <strong>
-                                Upload New Documents
-                            </strong>
+                           <strong>
+    Replace Documents
+</strong>
 
-                            <span>
-                                Images, PDF, DOC or DOCX
-                            </span>
+<span>
+    New documents will replace existing documents
+</span>
 
                             <span class="employee-upload-button">
                                 Choose Documents
@@ -1554,6 +1554,288 @@
         height: 110px;
     }
 }
+
+/* =========================================================
+   DESKTOP EQUAL-HEIGHT LAYOUT
+   Both panels remain the same height. Large preview content
+   scrolls inside the left panel instead of increasing page height.
+   ========================================================= */
+@media (min-width: 992px) {
+    .employee-edit-page form > .row {
+        align-items: stretch;
+    }
+
+    .employee-edit-page form > .row > [class*="col-"] {
+        display: flex;
+        min-width: 0;
+    }
+
+    .employee-upload-card,
+    .employee-form-card {
+        width: 100%;
+        height: clamp(700px, calc(100vh - 185px), 820px);
+        min-height: 0;
+    }
+
+    /* LEFT PANEL */
+    .employee-upload-card {
+        display: grid;
+        grid-template-rows: repeat(3, minmax(0, 1fr));
+    }
+
+    .employee-upload-card .upload-section {
+        min-height: 0;
+        padding: 16px 18px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #b9bdc4 transparent;
+    }
+
+    .employee-upload-card .upload-section::-webkit-scrollbar,
+    .employee-form-card-body::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .employee-upload-card .upload-section::-webkit-scrollbar-thumb,
+    .employee-form-card-body::-webkit-scrollbar-thumb {
+        border-radius: 50px;
+        background: #b9bdc4;
+    }
+
+    .employee-upload-card .upload-section::-webkit-scrollbar-track,
+    .employee-form-card-body::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .upload-section-header {
+        margin-bottom: 10px;
+    }
+
+    .upload-section-header h5 {
+        font-size: 14px;
+    }
+
+    .upload-section-header p {
+        font-size: 10px;
+    }
+
+    .upload-header-icon {
+        flex-basis: 34px;
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        font-size: 15px;
+    }
+
+    .existing-files-heading {
+        margin-bottom: 7px;
+        font-size: 10px;
+    }
+
+    .existing-files-heading span {
+        min-width: 22px;
+        height: 22px;
+        font-size: 9px;
+    }
+
+    .existing-preview-grid,
+    #picturesPreview,
+    #cnicPreview {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 7px;
+    }
+
+    .preview-image-card {
+        height: 82px;
+        border-radius: 8px;
+    }
+
+    .preview-image-label {
+        right: 4px;
+        bottom: 4px;
+        left: 4px;
+        padding: 3px 5px;
+        font-size: 7px;
+    }
+
+    .preview-action-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+
+    .empty-preview-box {
+        min-height: 58px;
+        padding: 9px;
+        gap: 3px;
+        font-size: 9px;
+    }
+
+    .empty-preview-box i {
+        font-size: 19px;
+    }
+
+    .employee-upload-box {
+        min-height: 72px;
+        margin-top: 9px !important;
+        padding: 10px 12px;
+        display: grid;
+        grid-template-columns: 38px minmax(0, 1fr) auto;
+        grid-template-areas:
+            "icon title button"
+            "icon note button";
+        column-gap: 10px;
+        row-gap: 1px;
+        align-items: center;
+        text-align: left;
+    }
+
+    .employee-upload-icon {
+        grid-area: icon;
+        width: 38px;
+        height: 38px;
+        margin: 0;
+        font-size: 16px;
+    }
+
+    .employee-upload-box strong {
+        grid-area: title;
+        align-self: end;
+        font-size: 11px;
+        line-height: 1.2;
+    }
+
+    .employee-upload-box > span:not(.employee-upload-button) {
+        grid-area: note;
+        align-self: start;
+        overflow: hidden;
+        font-size: 8px;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .employee-upload-button {
+        grid-area: button;
+        margin: 0;
+        padding: 7px 9px;
+        font-size: 8px;
+        white-space: nowrap;
+    }
+
+    .documents-preview-list {
+        gap: 6px;
+    }
+
+    .document-preview-row {
+        padding: 6px;
+        gap: 7px;
+    }
+
+    .document-preview-icon {
+        flex-basis: 32px;
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
+    .document-preview-info strong {
+        font-size: 9px;
+    }
+
+    .document-preview-info small {
+        font-size: 8px;
+    }
+
+    .small-document-action {
+        width: 25px;
+        height: 25px;
+        border-radius: 6px;
+        font-size: 11px;
+    }
+
+    /* RIGHT PANEL */
+    .employee-form-card {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .employee-form-card-header {
+        flex: 0 0 auto;
+        min-height: 74px;
+        padding: 16px 20px;
+    }
+
+    .employee-form-card-body {
+        min-height: 0;
+        flex: 1 1 auto;
+        padding: 18px 20px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #b9bdc4 transparent;
+    }
+
+    .employee-form-card-body .row {
+        --bs-gutter-y: 0.75rem;
+    }
+
+    .employee-field .form-label {
+        margin-bottom: 5px;
+        font-size: 10px;
+    }
+
+    .employee-input {
+        min-height: 43px;
+        font-size: 12px;
+    }
+
+    .employee-textarea {
+        min-height: 86px;
+        max-height: 120px;
+        font-size: 12px;
+    }
+
+    .employee-field-help {
+        margin-top: 4px;
+        font-size: 8px;
+    }
+
+    .employee-form-footer {
+        flex: 0 0 auto;
+        padding: 13px 18px;
+    }
+}
+
+/* Medium laptop screens */
+@media (min-width: 992px) and (max-height: 820px) {
+    .employee-upload-card,
+    .employee-form-card {
+        height: calc(100vh - 165px);
+        min-height: 620px;
+    }
+
+    .employee-form-card-header {
+        min-height: 66px;
+        padding-top: 13px;
+        padding-bottom: 13px;
+    }
+
+    .employee-form-card-body {
+        padding-top: 14px;
+        padding-bottom: 14px;
+    }
+
+    .employee-input {
+        min-height: 40px;
+    }
+
+    .employee-textarea {
+        min-height: 72px;
+    }
+}
+
 </style>
 
 <script>

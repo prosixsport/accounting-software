@@ -435,6 +435,14 @@
                                     Advance
 
                                 </button>
+                               {{-- Attendance Calendar --}}
+<a href="{{ route('employees.attendance.calendar', $employee->id) }}"
+   class="btn btn-primary btn-sm mb-1"
+   title="Attendance Calendar">
+
+    <i class="bi bi-calendar2-check"></i> Attendance Calendar
+
+</a>
 
                             </td>
 
@@ -696,6 +704,8 @@
 
 .employee-profile {
     object-fit: cover;
+    width: 45px;
+    height: 55px;
 }
 
 .employee-avatar {

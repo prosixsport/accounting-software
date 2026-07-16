@@ -810,20 +810,19 @@
 
 .profile-picture-box {
     width: 145px;
-    height: 145px;
+    height: 180px;
     overflow: hidden;
-    border: 5px solid var(--employee-white);
-    border-radius: 50%;
-    background: #eeeeee;
-    box-shadow:
-        0 0 0 1px var(--employee-border),
-        0 8px 25px rgba(0, 0, 0, 0.16);
+    border: 2px solid #111;
+    border-radius: 8px;   /* ya 0px agar bilkul square chahiye */
+    background: #eee;
+    box-shadow: 0 6px 18px rgba(0,0,0,.15);
 }
 
 .employee-profile-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
 }
 
 .profile-actions {
