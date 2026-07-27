@@ -1374,18 +1374,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     alert(
                         'Please select at least one paid employee.'
                     );
-
                 }
-
             }
         );
-
     }
-
     filterEmployees();
-
-
-
 });
 </script>
 

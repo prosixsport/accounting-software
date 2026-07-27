@@ -8,9 +8,12 @@ use Illuminate\Support\Facades\Storage;
 
 class EmployeeController extends Controller
 {
-    public function index()
+  public function index()
 {
-    $employees = Employee::latest()->get();
+    $employees = Employee::query()
+        ->orderByDesc('basic_salary')
+        ->orderBy('name', 'asc')
+        ->get();
 
     $departments = Employee::query()
         ->whereNotNull('department')
