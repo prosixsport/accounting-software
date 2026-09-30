@@ -1,13 +1,13 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\PayrollController;
+use App\Http\Controllers\SalaryManagementController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ExpenseCategoryController;
 use App\Http\Controllers\ExpenseSubCategoryController;
@@ -35,7 +35,6 @@ use App\Http\Controllers\OwnerFundController;
 | Public Routes
 |--------------------------------------------------------------------------
 */
-
 Route::get('/', function () {
     return redirect()->route('login');
 });
@@ -77,7 +76,6 @@ Route::post(
 | Security ke liye har session ka random unique token hota hai.
 |
 */
-
 Route::get(
     '/mobile/expense-receipt/{token}',
     [ExpenseReceiptUploadController::class, 'mobilePage']
@@ -93,15 +91,12 @@ Route::post(
 | Authenticated Routes
 |--------------------------------------------------------------------------
 */
-
 Route::middleware('auth')->group(function () {
-
     /*
     |--------------------------------------------------------------------------
     | Dashboard
     |--------------------------------------------------------------------------
     */
-
     Route::get(
         '/dashboard',
         [DashboardController::class, 'index']
@@ -112,7 +107,6 @@ Route::middleware('auth')->group(function () {
     | User Access
     |--------------------------------------------------------------------------
     */
-
     Route::get(
         '/user-access',
         [UserAccessController::class, 'index']
@@ -143,7 +137,6 @@ Route::middleware('auth')->group(function () {
     | Monthly Alerts
     |--------------------------------------------------------------------------
     */
-
     Route::get(
         '/monthly-alerts',
         [MonthlyAlertController::class, 'index']
@@ -174,7 +167,6 @@ Route::middleware('auth')->group(function () {
     | Accounts
     |--------------------------------------------------------------------------
     */
-
     Route::resource(
         'accounts',
         AccountController::class
@@ -185,7 +177,6 @@ Route::middleware('auth')->group(function () {
     | Owner Funds
     |--------------------------------------------------------------------------
     */
-
     Route::resource(
         'owner-funds',
         OwnerFundController::class
@@ -196,7 +187,6 @@ Route::middleware('auth')->group(function () {
     | Employees
     |--------------------------------------------------------------------------
     */
-
     Route::resource(
         'employees',
         EmployeeController::class
@@ -207,34 +197,26 @@ Route::middleware('auth')->group(function () {
     | Attendance
     |--------------------------------------------------------------------------
     */
+    Route::get(
+        '/employees/{employee}/attendance',
+        [AttendanceController::class, 'calendar']
+    )->name('employees.attendance.calendar');
 
-   /*
-|--------------------------------------------------------------------------
-| Attendance
-|--------------------------------------------------------------------------
-*/
+    Route::post(
+        '/employees/{employee}/attendance',
+        [AttendanceController::class, 'calendarSave']
+    )->name('employees.attendance.save');
 
-Route::get(
-    '/employees/{employee}/attendance',
-    [AttendanceController::class, 'calendar']
-)->name('employees.attendance.calendar');
-
-Route::post(
-    '/employees/{employee}/attendance',
-    [AttendanceController::class, 'calendarSave']
-)->name('employees.attendance.save');
-
-Route::resource(
-    'attendances',
-    AttendanceController::class
-);
+    Route::resource(
+        'attendances',
+        AttendanceController::class
+    );
 
     /*
     |--------------------------------------------------------------------------
     | Payroll
     |--------------------------------------------------------------------------
     */
-
     Route::get(
         '/payrolls/print-slips',
         [PayrollController::class, 'printSlips']
@@ -263,11 +245,38 @@ Route::resource(
     ]);
 
     /*
+     * Salary Management
+     */
+    Route::get(
+        '/salary-management',
+        [SalaryManagementController::class, 'index']
+    )->name('salary-management.index');
+
+    Route::post(
+        '/salary-management',
+        [SalaryManagementController::class, 'save']
+    )->name('salary-management.save');
+
+    Route::post(
+        '/salary-management/advances',
+        [SalaryManagementController::class, 'advance']
+    )->name('salary-management.advance');
+
+    Route::delete(
+        '/salary-management/advances/{advance}',
+        [SalaryManagementController::class, 'deleteAdvance']
+    )->name('salary-management.advance.delete');
+
+    Route::get(
+        '/salary-management/print',
+        [SalaryManagementController::class, 'print']
+    )->name('salary-management.print');
+
+    /*
     |--------------------------------------------------------------------------
     | Biometric
     |--------------------------------------------------------------------------
     */
-
     Route::resource(
         'biometric',
         BiometricTemplateController::class
@@ -286,7 +295,6 @@ Route::resource(
     | Ye routes sirf logged-in computer user use karega.
     |
     */
-
     Route::post(
         '/expense-receipt/session',
         [ExpenseReceiptUploadController::class, 'createSession']
@@ -307,7 +315,6 @@ Route::resource(
     | Expenses
     |--------------------------------------------------------------------------
     */
-
     Route::resource(
         'expense-categories',
         ExpenseCategoryController::class
@@ -328,7 +335,6 @@ Route::resource(
     | Customers
     |--------------------------------------------------------------------------
     */
-
     Route::resource(
         'customers',
         CustomerController::class
@@ -349,7 +355,6 @@ Route::resource(
     | Contractors
     |--------------------------------------------------------------------------
     */
-
     Route::resource(
         'contractors',
         ContractorController::class
@@ -360,7 +365,6 @@ Route::resource(
     | Contractor Departments
     |--------------------------------------------------------------------------
     */
-
     Route::post(
         '/contractor-departments',
         [ContractorDepartmentController::class, 'store']
@@ -381,7 +385,6 @@ Route::resource(
     | Contractor Machines
     |--------------------------------------------------------------------------
     */
-
     Route::get(
         '/contractor-machines',
         [ContractorMachineController::class, 'index']
@@ -407,7 +410,6 @@ Route::resource(
     | Contractor Items
     |--------------------------------------------------------------------------
     */
-
     Route::resource(
         'contractor-items',
         ContractorItemController::class
@@ -421,7 +423,6 @@ Route::resource(
     | Custom routes resource route se pehle honi chahiye.
     |
     */
-
     Route::post(
         '/contractor-bills/advance',
         [ContractorBillController::class, 'storePayment']
@@ -447,7 +448,6 @@ Route::resource(
     | Customer Ledgers
     |--------------------------------------------------------------------------
     */
-
     Route::get(
         '/customer-ledgers',
         [CustomerLedgerController::class, 'index']
@@ -463,7 +463,6 @@ Route::resource(
     | Reports
     |--------------------------------------------------------------------------
     */
-
     Route::get(
         '/reports/profit-loss',
         [ReportController::class, 'profitLoss']
