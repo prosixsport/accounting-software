@@ -349,7 +349,7 @@
 
                 <div class="sm-editor-body">
 
-                    <form method="post" action="{{ route('salary-management.save') }}" class="sm-salary-form" data-advance-total="{{ $figures['advance'] }}">
+                    <form method="post" action="{{ route('salary-management.save') }}" class="sm-salary-form" data-month-days="{{ $month->daysInMonth }}" data-advance-total="{{ $figures['advance'] }}">
 
                         @csrf
 
@@ -371,7 +371,7 @@
 
                                     @endphp
 
-                                    <div><label class="sm-label" for="sm-{{ $employee->id }}-{{ $field }}">{{ $label }}</label><input class="sm-control" id="sm-{{ $employee->id }}-{{ $field }}" type="number" name="{{ $field }}" min="0" max="{{ $field === 'absent_days' ? $month->daysInMonth : '9999999999.99' }}" step="0.01" value="{{ $value }}" required>
+                                    <div><label class="sm-label" for="sm-{{ $employee->id }}-{{ $field }}">{{ $label }}</label><input class="sm-control" id="sm-{{ $employee->id }}-{{ $field }}" type="number" name="{{ $field }}" min="0" max="{{ $field === 'absent_days' ? $month->daysInMonth : '9999999999.99' }}" step="0.01" value="{{ $value }}" @if(in_array($field,['day_rate','ot_rate'])) readonly aria-readonly="true" @endif required>
 
                                         @if($field === 'loan_balance')<div class="sm-hint">Information only. Deduct the monthly loan installment separately.</div>@endif
 
@@ -383,6 +383,9 @@
 
                         @endforeach
 
+                        <label class="sm-label" for="sm-hours-{{ $employee->id }}">Working Hours Per Day</label>
+                        <input class="sm-control" id="sm-hours-{{ $employee->id }}" type="number" name="working_hours_per_day" min="1" max="24" step="0.01" value="{{ $restore ? old('working_hours_per_day', $row?->working_hours_per_day ?? 8) : ($row?->working_hours_per_day ?? 8) }}" required>
+                        <p class="sm-hint">Absence rate = monthly salary ÷ days in selected month. OT rate = absence rate ÷ working hours per day. Enter overtime as decimal hours (1 hour 30 minutes = 1.5).</p>
                         <label class="sm-label" for="sm-notes-{{ $employee->id }}">Additional Notes</label><textarea class="sm-control" id="sm-notes-{{ $employee->id }}" name="notes" rows="3" maxlength="2000" placeholder="Add salary adjustments, payment details or remarks">{{ $restore ? old('notes', $row?->notes) : $row?->notes }}</textarea>
 
                         <p class="sm-hint mt-3">Last week: enter the salary amount actually paid in Final Salary Paid, then save. Advances are already deducted from the net salary.</p><button type="button" class="sm-btn" data-fill-final>Fill Full Final Salary</button>
@@ -582,7 +585,16 @@
 
     root.querySelectorAll('.sm-salary-form').forEach(function (form) {
 
+        function updateRates() {
+            const salary = Number(form.elements.namedItem('salary').value) || 0;
+            const days = Number(form.dataset.monthDays);
+            const hours = Number(form.elements.namedItem('working_hours_per_day').value);
+            const dayRate = round(salary / days);
+            form.elements.namedItem('day_rate').value = dayRate.toFixed(2);
+            form.elements.namedItem('ot_rate').value = (hours >= 1 && hours <= 24 ? round(dayRate / hours) : 0).toFixed(2);
+        }
         function preview() {
+            updateRates();
 
             const value = function (name) { const n = Number(form.elements.namedItem(name).value); return Number.isFinite(n) ? n : 0; };
 

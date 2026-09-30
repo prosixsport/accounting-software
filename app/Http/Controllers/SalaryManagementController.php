@@ -22,8 +22,11 @@ class SalaryManagementController extends Controller {
   $month=$this->month($request);
   $rules=['employee_id'=>['required',Rule::exists('employees','id')],'notes'=>['nullable','string','max:2000']];
   foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount'] as $f) $rules[$f]=['required','numeric','min:0','max:9999999999.99'];
+  $rules['working_hours_per_day']=['required','numeric','min:1','max:24'];
   $rules['absent_days'][]='max:'.$month->daysInMonth;
   $data=$request->validate($rules);
+  $data['day_rate']=round($data['salary']/$month->daysInMonth,2);
+  $data['ot_rate']=round($data['day_rate']/$data['working_hours_per_day'],2);
   SalaryManagementRow::updateOrCreate(['employee_id'=>$data['employee_id'],'month'=>$month->toDateString()],$data);
   return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success','Salary details saved.')->with('active_employee',$data['employee_id'])->with('active_tab','salary');
  }
