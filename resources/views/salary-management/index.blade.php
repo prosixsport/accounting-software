@@ -45,7 +45,7 @@
 
         ]],
 
-        'attendance' => ['title'=>'Attendance & Overtime', 'description'=>'Enter absents and the rates used to calculate deductions and overtime.', 'fields'=>[
+        'attendance' => ['title'=>'Attendance & Overtime', 'description'=>'Enter absent days and overtime hours as whole numbers: 1, 2, 3. Rates and amounts update automatically from salary.', 'fields'=>[
 
             'absent_days'=>'Absent Days', 'day_rate'=>'Absence Rate / Day', 'ot_hours'=>'OT Hours', 'ot_rate'=>'OT Rate / Hour',
 
@@ -119,13 +119,17 @@
 
     <section class="sm-card" aria-label="All employee salary records">
 
+        <p class="sm-hint" style="padding:16px 20px 0;margin:0">Viewing {{ $month->format('F Y') }}. Choose a month to see its saved salary and advance records. Each month is saved separately.</p>
         <div class="sm-toolbar">
 
             <form method="get" class="sm-month-form" action="{{ route('salary-management.index') }}">
 
                 <div><label class="sm-label" for="salary-month">Salary Month</label><input class="sm-control" id="salary-month" type="month" name="month" value="{{ $monthKey }}" required></div>
 
-                <button class="sm-btn sm-btn-primary" type="submit">Load Month</button>
+                <button class="sm-btn sm-btn-primary" type="submit">View Month Records</button>
+                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>$month->copy()->subMonthNoOverflow()->format('Y-m')]) }}">Previous Month</a>
+                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>$month->copy()->addMonthNoOverflow()->format('Y-m')]) }}">Next Month</a>
+                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>now()->format('Y-m')]) }}">Current Month</a>
 
             </form>
 
@@ -371,7 +375,7 @@
 
                                     @endphp
 
-                                    <div><label class="sm-label" for="sm-{{ $employee->id }}-{{ $field }}">{{ $label }}</label><input class="sm-control" id="sm-{{ $employee->id }}-{{ $field }}" type="number" name="{{ $field }}" min="0" max="{{ $field === 'absent_days' ? $month->daysInMonth : '9999999999.99' }}" step="0.01" value="{{ $value }}" @if(in_array($field,['day_rate','ot_rate'])) readonly aria-readonly="true" @endif required>
+                                    <div><label class="sm-label" for="sm-{{ $employee->id }}-{{ $field }}">{{ $label }}</label><input class="sm-control" id="sm-{{ $employee->id }}-{{ $field }}" type="number" name="{{ $field }}" min="0" max="{{ $field === 'absent_days' ? $month->daysInMonth : '9999999999.99' }}" step="{{ in_array($field,['absent_days','ot_hours']) ? '1' : '0.01' }}" value="{{ $value }}" @if(in_array($field,['day_rate','ot_rate'])) readonly aria-readonly="true" @endif required>
 
                                         @if($field === 'loan_balance')<div class="sm-hint">Information only. Deduct the monthly loan installment separately.</div>@endif
 
@@ -384,8 +388,8 @@
                         @endforeach
 
                         <label class="sm-label" for="sm-hours-{{ $employee->id }}">Working Hours Per Day</label>
-                        <input class="sm-control" id="sm-hours-{{ $employee->id }}" type="number" name="working_hours_per_day" min="1" max="24" step="0.01" value="{{ $restore ? old('working_hours_per_day', $row?->working_hours_per_day ?? 8) : ($row?->working_hours_per_day ?? 8) }}" required>
-                        <p class="sm-hint">Absence rate = monthly salary ÷ days in selected month. OT rate = absence rate ÷ working hours per day. Enter overtime as decimal hours (1 hour 30 minutes = 1.5).</p>
+                        <input class="sm-control" id="sm-hours-{{ $employee->id }}" type="number" name="working_hours_per_day" min="1" max="24" step="1" value="{{ $restore ? old('working_hours_per_day', $row?->working_hours_per_day ?? 8) : ($row?->working_hours_per_day ?? 8) }}" required>
+                        <p class="sm-hint">Absence rate = monthly salary ÷ days in selected month. OT rate = absence rate ÷ working hours per day. Enter whole days and whole overtime hours: 1, 2, 3. The preview updates immediately; click Save Salary Details to save changes.</p>
                         <label class="sm-label" for="sm-notes-{{ $employee->id }}">Additional Notes</label><textarea class="sm-control" id="sm-notes-{{ $employee->id }}" name="notes" rows="3" maxlength="2000" placeholder="Add salary adjustments, payment details or remarks">{{ $restore ? old('notes', $row?->notes) : $row?->notes }}</textarea>
 
                         <p class="sm-hint mt-3">Last week: enter the salary amount actually paid in Final Salary Paid, then save. Advances are already deducted from the net salary.</p><button type="button" class="sm-btn" data-fill-final>Fill Full Final Salary</button>
