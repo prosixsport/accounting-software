@@ -136,12 +136,16 @@
             </form>
 
             <div class="sm-actions">
-                <div><label class="sm-label" for="sm-weeks-show">Weeks to Show</label><select class="sm-control" id="sm-weeks-show">@for($w=1;$w<=5;$w++)<option value="{{ $w }}" @selected($w===5)>{{ $w }} {{ $w===1?'Week':'Weeks' }}</option>@endfor</select></div>
+                <div><label class="sm-label" for="sm-weeks-show">Advance Week</label><select class="sm-control" id="sm-weeks-show"><option value="0">All Weeks</option>
+@for($w=1;$w<=5;$w++)
+<option value="{{ $w }}">Week {{ $w }}</option>
+@endfor
+</select></div>
                 @foreach(['dates'=>'Date-wise Sheet', 'weeks'=>'Weekly Salary Sheet'] as $mode=>$label)
 
                     @if($savedRows->isNotEmpty())
 
-                        <a target="_blank" rel="noopener" class="sm-btn" data-saved-print href="{{ route('salary-management.print', ['month'=>$monthKey, 'mode'=>$mode,'scope'=>'all','week_count'=>5]) }}"><i class="bi bi-printer" aria-hidden="true"></i> {{ $label }}</a>
+                        <a target="_blank" rel="noopener" class="sm-btn" data-saved-print href="{{ route('salary-management.print', ['month'=>$monthKey, 'mode'=>$mode,'scope'=>'all','week'=>0]) }}"><i class="bi bi-printer" aria-hidden="true"></i> {{ $label }}</a>
 
                     @else
 
@@ -169,11 +173,11 @@
             <input type="hidden" name="month" value="{{ $monthKey }}">
             <input type="hidden" name="scope" value="selected">
             <div class="sm-actions">
-                <label class="sm-label" for="salary-print-mode">Print format</label>
-                <input type="hidden" name="week_count" id="sm-print-week-count" value="5"><select class="sm-control" style="width:auto" id="salary-print-mode" name="mode"><option value="slips">Individual Salary Slips</option><option value="weeks">Weekly Salary Sheet</option><option value="dates">Date-wise Sheet</option></select>
+
+                <input type="hidden" name="week" id="sm-print-week-count" value="0"><input type="hidden" id="salary-print-mode" name="mode" value="weeks">
                 <button type="submit" id="salary-print-selected" class="sm-btn sm-btn-primary" disabled>Print Selected (0)</button>
             </div>
-            <p class="sm-hint mb-0 mt-2">Select workers, choose the print format, then press Print Selected.</p>
+            <p class="sm-hint mb-0 mt-2">Select saved workers and a week above, then press Print Selected for a weekly sheet.</p>
         </form>
         <div class="sm-list-title"><strong>Employee Directory</strong><small id="salary-count" aria-live="polite">{{ $employees->count() }} employees</small></div>
 
@@ -795,22 +799,22 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  let overview={{ \Illuminate\Support\Js::from($overview) }}, revision={{ \Illuminate\Support\Js::from($revision) }}, current=null, busy=false;
  const weeks=document.getElementById('sm-weeks-show'),panel=document.getElementById('sm-summary-panel');
  const money=n=>'Rs '+Number(n).toLocaleString('en-PK',{minimumFractionDigits:2,maximumFractionDigits:2});
- const selectedAdvance=w=>(w.ledger||[]).filter(a=>Number(a.week)<=Number(weeks.value)).reduce((sum,a)=>sum+Number(a.amount),0);
+ const selectedAdvance=w=>(w.ledger||[]).filter(a=>(Number(weeks.value)===0 || Number(a.week)===Number(weeks.value))).reduce((sum,a)=>sum+Number(a.amount),0);
  function row(parent,values,tag='td') {const tr=document.createElement('tr');for(const val of values){const cell=document.createElement(tag);cell.textContent=val;tr.appendChild(cell);}parent.appendChild(tr);}
  function render(){
   const saved=overview.filter(w=>w.saved);
   const totals={employees:overview.length,salary:saved.reduce((s,w)=>s+w.salary,0),advance:saved.reduce((s,w)=>s+selectedAdvance(w),0),net:saved.reduce((s,w)=>s+w.net,0),due:saved.reduce((s,w)=>s+w.due,0)};
   document.querySelectorAll('[data-summary]').forEach(button=>{button.querySelector('strong').textContent=button.dataset.summary==='employees'?totals.employees:money(totals[button.dataset.summary]);button.setAttribute('aria-expanded',String(current===button.dataset.summary));});
   document.querySelector('[data-summary="employees"] small').textContent=saved.length+' saved · '+(overview.length-saved.length)+' pending';
-  document.querySelector('[data-summary="advance"] small').textContent='Weeks 1–'+weeks.value+' · click for payment details';
+  document.querySelector('[data-summary="advance"] small').textContent=(weeks.value==='0'?'All Weeks':'Week '+weeks.value)+' · click for payment details';
   if(!current){panel.hidden=true;return;}panel.hidden=false;
-  const titles={employees:'All Employees',salary:'Saved Monthly Salaries',advance:'Advance Payments — Weeks 1–'+weeks.value,net:'Monthly Net Salary',due:'Remaining Salary Due'};
+  const titles={employees:'All Employees',salary:'Saved Monthly Salaries',advance:'Advance Payments — '+(weeks.value==='0'?'All Weeks':'Week '+weeks.value),net:'Monthly Net Salary',due:'Remaining Salary Due'};
   document.getElementById('sm-summary-title').textContent=titles[current];
   document.getElementById('sm-summary-note').textContent=current==='advance'?'Shows saved payments for the selected weeks.':'Salary, net and due are monthly totals. Net and due include every saved advance.';
   const head=document.getElementById('sm-summary-head'),body=document.getElementById('sm-summary-body'),foot=document.getElementById('sm-summary-foot');head.replaceChildren();body.replaceChildren();foot.replaceChildren();
   if(current==='advance'){
    row(head,['Worker','Department','Date','Week','Amount','Reason'],'th');
-   let count=0;for(const w of saved)for(const a of w.ledger||[])if(Number(a.week)<=Number(weeks.value)){row(body,[w.name,w.department||'—',a.date,'Week '+a.week,money(a.amount),a.reason||'—']);count++;}
+   let count=0;for(const w of saved)for(const a of w.ledger||[])if((Number(weeks.value)===0 || Number(a.week)===Number(weeks.value))){row(body,[w.name,w.department||'—',a.date,'Week '+a.week,money(a.amount),a.reason||'—']);count++;}
    if(!count)row(body,['No advance payments in these weeks.']);row(foot,['Total','','','',money(totals.advance),''],'th');
   }else{
    row(head,['Worker','Department',current==='employees'?'Record':titles[current]],'th');
@@ -820,7 +824,7 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  }
  document.querySelectorAll('[data-summary]').forEach(button=>button.addEventListener('click',()=>{current=current===button.dataset.summary?null:button.dataset.summary;render();}));
  document.getElementById('sm-summary-close').addEventListener('click',()=>{current=null;render();});
- weeks.addEventListener('change',()=>{document.getElementById('sm-print-week-count').value=weeks.value;document.querySelectorAll('[data-saved-print]').forEach(a=>{const url=new URL(a.href,location.href);url.searchParams.set('week_count',weeks.value);a.href=url.href;});render();});
+ weeks.addEventListener('change',()=>{document.getElementById('sm-print-week-count').value=weeks.value;document.querySelectorAll('[data-saved-print]').forEach(a=>{const url=new URL(a.href,location.href);url.searchParams.delete('week_count');url.searchParams.set('week',weeks.value);a.href=url.href;});render();});
  async function refresh(afterSave=false){
   if(busy||document.hidden)return;
   if(!afterSave && document.querySelector('dialog[open]'))return;
@@ -836,7 +840,7 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
  try{
   const key='salary-view-'+{{ \Illuminate\Support\Js::from($monthKey) }}, saved=JSON.parse(sessionStorage.getItem(key)||'null');sessionStorage.removeItem(key);
-  if(saved){document.getElementById('salary-search').value=saved.search||'';document.getElementById('salary-department').value=saved.department||'';document.getElementById('salary-status').value=saved.status||'';weeks.value=saved.weeks||'5';document.getElementById('salary-print-mode').value=saved.mode||'slips';current=saved.current||null;
+  if(saved){document.getElementById('salary-search').value=saved.search||'';document.getElementById('salary-department').value=saved.department||'';document.getElementById('salary-status').value=saved.status||'';weeks.value=saved.weeks||'0';current=saved.current||null;
    weeks.dispatchEvent(new Event('change'));document.getElementById('salary-search').dispatchEvent(new Event('input'));
    document.querySelectorAll('.sm-print-check').forEach(b=>{b.checked=!b.disabled&&(saved.selected||[]).includes(b.value);});const first=document.querySelector('.sm-print-check');if(first)first.dispatchEvent(new Event('change'));
   }

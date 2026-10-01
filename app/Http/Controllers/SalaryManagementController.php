@@ -81,6 +81,7 @@ class SalaryManagementController extends Controller {
    'scope'=>['nullable',Rule::in(['selected','all'])],
    'mode'=>['nullable',Rule::in(['dates','weeks','slips'])],
    'week_count'=>['nullable','integer','min:1','max:5'],
+   'week'=>['nullable','integer','min:0','max:5'],
   ]);
   $single=!empty($data['employee_id']);
   $selected=($data['scope']??null)==='selected' || !empty($data['employee_ids']);
@@ -100,8 +101,11 @@ class SalaryManagementController extends Controller {
   }
   $mode=$data['mode']??'weeks';
   $weekCount=(int)($data['week_count']??5);
+  $selectedWeek=(int)($data['week']??0);
+  $weekStart=$selectedWeek>0 ? $selectedWeek : 1;
+  $weekEnd=$selectedWeek>0 ? $selectedWeek : $weekCount;
   $single=$single || $mode==='slips';
-  $dates=$rows->flatMap(fn($r)=>$r->advances->filter(fn($a)=>(int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1))<=$weekCount)->map(fn($a)=>$a->advance_date->format('Y-m-d')))->unique()->sort()->values();
-  return view('salary-management.print',compact('month','employees','rows','mode','dates','single','weekCount'));
+  $dates=$rows->flatMap(fn($r)=>$r->advances->filter(fn($a)=>(int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1))>=$weekStart && (int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1))<=$weekEnd)->map(fn($a)=>$a->advance_date->format('Y-m-d')))->unique()->sort()->values();
+  return view('salary-management.print',compact('month','employees','rows','mode','dates','single','weekCount','weekStart','weekEnd'));
  }
 }

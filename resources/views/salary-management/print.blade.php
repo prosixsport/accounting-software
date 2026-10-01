@@ -1,3 +1,9 @@
+@php
+$weekStart=$weekStart??1;
+$weekEnd=$weekEnd??($weekCount??5);
+$weekLabel=$weekStart===$weekEnd ? 'Week '.$weekStart : 'Weeks '.$weekStart.'–'.$weekEnd;
+$weekAdvances=fn($record)=>$record->advances->filter(fn($advance)=>(int)($advance->advance_week??min(5,intdiv($advance->advance_date->day-1,7)+1))>=$weekStart && (int)($advance->advance_week??min(5,intdiv($advance->advance_date->day-1,7)+1))<=$weekEnd);
+@endphp
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ $month->format('F Y') }} Salary</title><style>
 body{font-family:Arial,sans-serif;color:#111;margin:24px}h1{font-size:21px;text-align:center}h2{font-size:18px}table{border-collapse:collapse;width:100%;font-size:8px;table-layout:fixed}th,td{border:1px solid #555;padding:6px 3px;overflow-wrap:anywhere}th{background:#eee}td.money{text-align:right;white-space:normal}.sign{width:58px;height:34px}.toolbar{margin-bottom:20px}.scroll{overflow:auto}.slip{max-width:800px;margin:auto;break-after:page;padding-top:8px}.slip:last-of-type{break-after:auto}.slip table{font-size:14px}.slip th{text-align:left;width:55%}.slip table{table-layout:auto}.sheet-page{break-after:page;margin-bottom:30px}.sheet-page:last-of-type{break-after:auto}.sheet-name{width:100px}.sheet-department{width:60px}.sm-avatar{display:inline-flex;position:relative;width:60px;height:60px;align-items:center;justify-content:center;background:#eef2f5;border-radius:12px;overflow:hidden;font-weight:bold;font-size:25px}.sm-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.slip-person{display:flex;align-items:center;gap:15px;margin-bottom:22px}.slip-person h2{margin:0}.slip-person p{margin:7px 0 0}.signatures{display:flex;justify-content:space-between;margin-top:70px}button{padding:10px 20px;cursor:pointer}.note{white-space:pre-wrap}@page{size:A4 landscape;margin:10mm}@media print{body{margin:0}.toolbar{display:none}.scroll{overflow:visible}thead{display:table-header-group}tr{break-inside:avoid}th{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
@@ -89,17 +95,15 @@ $initial=mb_strtoupper(mb_substr(trim($e->name??'?'),0,1));
 @endforeach
 
 </tbody></table>
-<h3>Weekly Advances (Weeks 1–{{ $weekCount }})</h3><table class="advance-table"><thead><tr>
-@for($w=1;$w<=$weekCount;$w++)<th>Week {{ $w }}</th>
+<h3>Advances — {{ $weekLabel }}</h3><table class="advance-table"><thead><tr>
+@for($w=$weekStart;$w<=$weekEnd;$w++)<th>Week {{ $w }}</th>
 @endfor
-@if($weekCount<5)<th>Other Weeks</th>
-@endif
-<th>Monthly Total Advance</th></tr></thead><tbody><tr>
-@for($week=1;$week<=$weekCount;$week++)<td>Rs {{ number_format($r->advances->filter(fn($a)=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1))===$week)->sum('amount'),2) }}</td>
+
+<th>Selected Advance Total</th></tr></thead><tbody><tr>
+@for($week=$weekStart;$week<=$weekEnd;$week++)<td>Rs {{ number_format($r->advances->filter(fn($a)=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1))===$week)->sum('amount'),2) }}</td>
 @endfor
-@if($weekCount<5)<td>Rs {{ number_format($r->advances->filter(fn($a)=>(int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1))>$weekCount)->sum('amount'),2) }}</td>
-@endif
-<td>Rs {{ number_format($f['advance'],2) }}</td></tr></tbody></table>
+
+<td>Rs {{ number_format($weekAdvances($r)->sum('amount'),2) }}</td></tr></tbody></table>
 <div class="slip-signatures"><span>Employee Signature</span><span>Authorized Signature</span></div>
 </section>
 
@@ -113,7 +117,7 @@ $initial=mb_strtoupper(mb_substr(trim($e->name??'?'),0,1));
 @else
 
 @php
-$allColumns=$mode==='weeks'?collect(range(1,$weekCount)):$dates;
+$allColumns=$mode==='weeks'?collect(range($weekStart,$weekEnd)):$dates;
 $columnGroups=$mode==='dates' && $allColumns->count()>5 ? $allColumns->chunk(5) : collect([$allColumns]);
 
 @endphp
@@ -124,7 +128,7 @@ $columnGroups=$mode==='dates' && $allColumns->count()>5 ? $allColumns->chunk(5) 
 @endphp
 
 <section class="sheet-page">
-<h1>{{ strtoupper($month->format('F')) }} SALARY SHEET</h1><p style="text-align:center;font-size:9px;margin:0 0 2mm">Advance detail: Weeks 1–{{ $weekCount }}. Salary, total advances, net and due cover the full month.</p>
+<h1>{{ strtoupper($month->format('F')) }} SALARY SHEET</h1><p style="text-align:center;font-size:9px;margin:0 0 2mm">Advance detail: {{ $weekLabel }}. Salary, net and due are monthly totals.</p>
 
 @if($columnGroups->count()>1)<p style="font-size:11px">Advance dates · Part {{ $loop->iteration }} of {{ $columnGroups->count() }}. Monthly salary totals repeat in each part.</p>
 @endif
@@ -135,35 +139,33 @@ $advanceTotals=[];$outsideTotal=0;
 
 @endphp
 
-<div class="scroll"><table><thead><tr><th>Sr#</th><th class="sheet-department">Department</th><th class="sheet-name">Name</th><th>Loan</th><th>Salary</th>
+<div class="scroll"><table><thead><tr><th>Sr#</th><th class="sheet-department">Department</th><th class="sheet-name">Name</th><th>Loan</th><th>Monthly Salary</th>
 @foreach($columns as $c)<th>{{ $mode==='weeks'?'Week '.$c:\Illuminate\Support\Carbon::parse($c)->format('d/m/Y') }}
 @if($mode==='weeks')<br><small>Advance</small>
 @endif
 </th>
 @endforeach
-@if($weekCount<5)<th>Other Weeks</th>
-@endif
-<th>Monthly Total Advance</th><th>Absents</th><th>Absent Amount</th><th>OT Hours</th><th>OT Amount</th><th>Deduction</th><th>Net Pay</th><th>Overdue</th><th>Final Salary Paid</th><th>Due</th><th>Sign</th></tr></thead><tbody>
+
+<th>Selected Advance Total</th><th>Absents</th><th>Absent Amount</th><th>OT Hours</th><th>OT Amount</th><th>Deduction</th><th>Monthly Net Pay</th><th>Overdue</th><th>Final Salary Paid</th><th>Monthly Due</th><th>Sign</th></tr></thead><tbody>
 @foreach($pageEmployees as $e)
 @php
 $r=$rows->get($e->id); $f=$r->figures();
-$values=['loan'=>$r->loan_balance,'salary'=>$r->salary,'advance'=>$f['advance'],'absent'=>$r->absent_days,'absence'=>$f['absence'],'hours'=>$r->ot_hours,'ot'=>$f['ot'],'deduction'=>$r->loan_deduction+$r->other_deduction,'net'=>$f['net'],'overdue'=>$r->overdue,'paid'=>$r->paid_amount,'due'=>$f['due']];
+$values=['loan'=>$r->loan_balance,'salary'=>$r->salary,'advance'=>$weekAdvances($r)->sum('amount'),'absent'=>$r->absent_days,'absence'=>$f['absence'],'hours'=>$r->ot_hours,'ot'=>$f['ot'],'deduction'=>$r->loan_deduction+$r->other_deduction,'net'=>$f['net'],'overdue'=>$r->overdue,'paid'=>$r->paid_amount,'due'=>$f['due']];
 foreach($values as $key=>$v) $totals[$key]+=$v;
-$outside=$r->advances->filter(fn($a)=>(int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1))>$weekCount)->sum('amount');$outsideTotal+=$outside;
+
 
 @endphp
 
 <tr><td>{{ ($employeePage-1)*20+$loop->iteration }}</td><td>{{ $e->department ?? '-' }}</td><td>{{ $e->name }}</td><td class="money">{{ number_format($values['loan'],2) }}</td><td class="money">{{ number_format($values['salary'],2) }}</td>
 @foreach($columns as $c)
-@php $amount=$r->advances->filter(fn($a)=>$mode==='weeks'?(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1))===$c:($a->advance_date->format('Y-m-d')===$c && (int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1))<=$weekCount))->sum('amount'); $advanceTotals[$c]=($advanceTotals[$c]??0)+$amount;
+@php $amount=$r->advances->filter(fn($a)=>$mode==='weeks'?(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1))===$c:($a->advance_date->format('Y-m-d')===$c && (int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1))>=$weekStart && (int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1))<=$weekEnd))->sum('amount'); $advanceTotals[$c]=($advanceTotals[$c]??0)+$amount;
 @endphp
 
 <td class="money">{{ number_format($amount,2) }}</td>
 
 @endforeach
 
-@if($weekCount<5)<td class="money">{{ number_format($outside,2) }}</td>
-@endif
+
 
 @foreach(['advance','absent','absence','hours','ot','deduction','net','overdue','paid','due'] as $key)<td class="money">{{ number_format($values[$key],2) }}</td>
 @endforeach
@@ -175,8 +177,7 @@ $outside=$r->advances->filter(fn($a)=>(int)($a->advance_week??min(5,intdiv($a->a
 @foreach($columns as $c)<th>{{ number_format($advanceTotals[$c]??0,2) }}</th>
 @endforeach
 
-@if($weekCount<5)<th>{{ number_format($outsideTotal,2) }}</th>
-@endif
+
 
 @foreach(['advance','absent','absence','hours','ot','deduction','net','overdue','paid','due'] as $key)<th>{{ number_format($totals[$key],2) }}</th>
 @endforeach
