@@ -247,7 +247,7 @@
 
                     <td>{{ $employee->department ?? '—' }}<span class="sm-cell-secondary">{{ $employee->designation ?? '—' }}</span></td>
 
-                    <td class="sm-money">{{ number_format($row ? $row->salary : ($employee->basic_salary ?? 0), 2) }} @unless($row)<span class="sm-cell-secondary">Basic salary · not saved</span>@endunless</td>
+                    <td class="sm-money">{{ $row ? number_format($row->salary,2) : '—' }}</td>
 
                     <td class="sm-money">{{ $row ? number_format($figures['advance'], 2) : '—' }}</td>
 
@@ -259,9 +259,9 @@
 
                     <td><div class="sm-row-actions">
 
-                        <button type="button" class="sm-btn sm-btn-small" data-open-employee="{{ $employee->id }}" data-open-tab="salary" aria-controls="salary-editor-{{ $employee->id }}">Edit Details</button>
+                        @if($row)<button type="button" class="sm-btn sm-btn-small" data-open-employee="{{ $employee->id }}" data-open-tab="salary" aria-controls="salary-editor-{{ $employee->id }}">Edit Details</button>
 
-                        <button type="button" class="sm-btn sm-btn-small" data-open-employee="{{ $employee->id }}" data-open-tab="advances" aria-controls="salary-editor-{{ $employee->id }}">Advance</button>
+                        <button type="button" class="sm-btn sm-btn-small" data-open-employee="{{ $employee->id }}" data-open-tab="advances" aria-controls="salary-editor-{{ $employee->id }}">Advance</button>@else<span class="sm-hint">Use Add Salary first</span>@endif
 
                         @if($row)<a class="sm-btn sm-btn-small" target="_blank" rel="noopener" aria-label="Print salary slip for {{ $employee->name }}" href="{{ route('salary-management.print', ['month'=>$monthKey, 'employee_id'=>$employee->id]) }}"><i class="bi bi-printer" aria-hidden="true"></i> Slip</a>@endif
 
@@ -651,7 +651,7 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  $r=$rows->get($e->id);
  $data=[];
  foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount','working_hours_per_day','salary_date','notes'] as $field) $data[$field]=$r?->{$field};
- return ['id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
+ return ['id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(3,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
 })->values();
 @endphp
 <dialog id="sm-batch-dialog" style="width:min(1050px,95vw);max-height:92vh;border:1px solid #ddd;border-radius:14px;padding:0">
@@ -664,12 +664,20 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  <div class="col-md-4"><label class="sm-label" for="sm-entry-worker">Worker · Department · Record</label><select class="sm-control" id="sm-entry-worker" name="employee_id" required><option value="">Select Worker</option></select></div></div>
  <fieldset id="sm-entry-fields" disabled style="border:0;padding:0">
  <label class="sm-label">Salary Date</label><input class="sm-control mb-3" name="salary_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}" value="{{ $month->isSameMonth(now()) ? now()->toDateString() : $month->toDateString() }}" required>
- <div class="row g-3">@foreach($groups as $group) @foreach($group['fields'] as $field=>$label)<div class="col-md-4"><label class="sm-label">{{ $label }}</label><input class="sm-control" type="number" name="{{ $field }}" min="0" max="{{ $field==='absent_days' ? $month->daysInMonth : '9999999999.99' }}" step="{{ in_array($field,['absent_days','ot_hours']) ? 1 : '0.01' }}" value="0" @if(in_array($field,['day_rate','ot_rate'])) readonly @endif required></div>@endforeach @endforeach
- <div class="col-md-4"><label class="sm-label">Working Hours Per Day</label><input class="sm-control" name="working_hours_per_day" type="number" min="1" max="24" step="1" value="8" required></div>
- <div class="col-12"><label class="sm-label">Notes</label><textarea class="sm-control" name="notes" maxlength="2000"></textarea></div></div>
+ <h5>Salary & Attendance</h5><div class="row g-3">
+ @foreach(['salary'=>'Monthly Salary','absent_days'=>'Absent Days','ot_hours'=>'Overtime Hours','working_hours_per_day'=>'Working Hours Per Day'] as $field=>$label)
+ <div class="col-md-3"><label class="sm-label">{{ $label }}</label><input class="sm-control" type="number" name="{{ $field }}" min="{{ $field==='working_hours_per_day'?1:0 }}" max="{{ $field==='absent_days'?$month->daysInMonth:($field==='working_hours_per_day'?24:'9999999999.99') }}" step="{{ $field==='salary'?'0.01':1 }}" value="{{ $field==='working_hours_per_day'?8:0 }}" required></div>
+ @endforeach
+ <input type="hidden" name="day_rate" value="0"><input type="hidden" name="ot_rate" value="0">
+ </div><p class="sm-hint mt-2" id="sm-entry-rates">Daily and hourly rates calculate automatically.</p>
+ <details id="sm-extra-details" class="sm-section mt-3"><summary style="cursor:pointer;font-weight:600">Loan, Other Deductions & Payment (Optional)</summary><div class="row g-3 mt-1">
+ @foreach(['loan_balance'=>'Loan Balance — information only','loan_deduction'=>'Loan Installment to Deduct','other_deduction'=>'Other Deduction','overdue'=>'Previous Unpaid Salary (+)','paid_amount'=>'Final Salary Already Paid'] as $field=>$label)<div class="col-md-4"><label class="sm-label">{{ $label }}</label><input class="sm-control" name="{{ $field }}" type="number" min="0" max="9999999999.99" step="0.01" value="0" required></div>@endforeach
+ <div class="col-12"><label class="sm-label">Notes</label><textarea class="sm-control" name="notes" maxlength="2000"></textarea></div>
+ </div><p class="sm-hint mt-2">Loan balance does not reduce salary. Only the entered loan installment is deducted.</p></details>
  <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>Existing advances remain saved. These fields add one new payment.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week"><option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option></select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div></section>
+ <section class="sm-section mt-3"><h5 id="sm-ledger-title">Saved Advance Record</h5><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Week</th><th>Amount</th><th>Reason</th></tr></thead><tbody id="sm-entry-ledger"></tbody></table></div><div class="sm-hint" id="sm-entry-week-totals"></div><p class="sm-hint">New advances appear here after saving. Each payment is deducted once.</p></section>
  <div class="alert alert-info" id="sm-entry-preview" aria-live="polite"></div>
- <button class="sm-btn sm-btn-primary" type="submit" id="sm-entry-save">Save & Select Next Worker</button>
+ <div style="position:sticky;bottom:0;background:white;padding:12px 0;border-top:1px solid #eee"><button class="sm-btn sm-btn-primary" type="submit" id="sm-entry-save">Save & Select Next Worker</button></div>
  </fieldset></form></div>
 </dialog>
 <script>
@@ -681,12 +689,24 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  let changed=false, saving=false;
  const num=n=>Number(form.elements.namedItem(n).value)||0, round=n=>Math.round((n+Number.EPSILON)*100)/100;
  const money=n=>'Rs '+n.toLocaleString('en-PK',{minimumFractionDigits:2,maximumFractionDigits:2});
+ function renderLedger(w){
+  const body=document.getElementById('sm-entry-ledger');body.replaceChildren();
+  document.getElementById('sm-ledger-title').textContent='Saved Advance Record'+(w?' — '+w.name:'');
+  const ledger=w?.ledger||[], totals=[0,0,0];
+  for(const a of ledger){
+   const tr=document.createElement('tr');
+   for(const text of [a.date,'Week '+a.week,money(Number(a.amount)),a.reason||'—']){const td=document.createElement('td');td.textContent=text;tr.appendChild(td);}body.appendChild(tr);
+   if(a.week>=1&&a.week<=3)totals[a.week-1]+=Number(a.amount);
+  }
+  if(!ledger.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.textContent='No saved advances for this worker.';tr.appendChild(td);body.appendChild(tr);}
+  document.getElementById('sm-entry-week-totals').textContent=totals.map((n,i)=>'Week '+(i+1)+': '+money(n)).join(' · ');
+ }
  function options(){
   const selected=select.value, q=search.value.trim().toLocaleLowerCase();
   select.replaceChildren(new Option('Select Worker',''));
   workers.filter(w=>(!dept.value || w.department===dept.value) && (w.name+' '+w.code).toLocaleLowerCase().includes(q)).forEach(w=>select.add(new Option(w.name+' · '+(w.department||'No Department')+' · '+(w.saved?'Saved':'Not Saved'),String(w.id))));
   select.value=selected;
-  if(!select.value){fields.disabled=true;}
+  if(!select.value){fields.disabled=true;renderLedger(null);}
  }
  function preview(){
   const w=workers.find(w=>String(w.id)===select.value);if(!w)return;
@@ -694,11 +714,18 @@ $entryWorkers=$employees->map(function($e) use($rows) {
   form.elements.day_rate.value=day.toFixed(2);form.elements.ot_rate.value=(hrs>=1&&hrs<=24?round(day/hrs):0).toFixed(2);
   const advances=Number(w.advance)+num('entry_advance_amount');
   const net=round(num('salary')+round(num('ot_hours')*num('ot_rate'))-round(num('absent_days')*day)-advances-num('loan_deduction')-num('other_deduction'));
-  document.getElementById('sm-entry-preview').textContent='Total Advance: '+money(advances)+' · Net Pay: '+money(net)+' · Remaining Due: '+money(round(net+num('overdue')-num('paid_amount')));
+  document.getElementById('sm-entry-rates').textContent='Absence rate: '+money(day)+'/day · Overtime rate: '+money(num('ot_rate'))+'/hour';
+  const preview=document.getElementById('sm-entry-preview');preview.replaceChildren();
+  for(const [label,amount] of [['Monthly Salary (+)',num('salary')],['Overtime (+)',round(num('ot_hours')*num('ot_rate'))],['Absence Deduction (−)',round(num('absent_days')*day)],['Advances (−)',advances],['Loan Installment (−)',num('loan_deduction')],['Other Deduction (−)',num('other_deduction')],['Net Salary',net],['Previous Due (+)',num('overdue')],['Final Salary Paid (−)',num('paid_amount')],['Remaining Due',round(net+num('overdue')-num('paid_amount'))]]){
+   const line=document.createElement('div');line.style.cssText='display:flex;justify-content:space-between;gap:12px;padding:4px 0';
+   const caption=document.createElement('span'),value=document.createElement('strong');caption.textContent=label;value.textContent=money(amount);line.appendChild(caption);line.appendChild(value);preview.appendChild(line);
+  }
  }
  function load(){
   const w=workers.find(w=>String(w.id)===select.value);fields.disabled=!w;if(!w)return;
   for(const [key,val] of Object.entries(w.data)){if(form.elements.namedItem(key))form.elements.namedItem(key).value=val??(key==='salary'?w.basic_salary:key==='working_hours_per_day'?8:key==='salary_date'?dateDefault:key==='notes'?'':0);}
+  for(const key of ['absent_days','ot_hours','working_hours_per_day'])form.elements.namedItem(key).value=Number(form.elements.namedItem(key).value);
+  renderLedger(w);document.getElementById('sm-extra-details').open=['loan_balance','loan_deduction','other_deduction','overdue','paid_amount'].some(k=>num(k)>0);
   form.elements.entry_advance_amount.value=0;form.elements.entry_advance_date.value=form.elements.salary_date.value;form.elements.entry_advance_reason.value='';preview();
  }
  document.getElementById('sm-add-salary').addEventListener('click',()=>{options();dialog.showModal();});
@@ -714,8 +741,8 @@ $entryWorkers=$employees->map(function($e) use($rows) {
   try{
    const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
    const data=await response.json();if(!response.ok)throw new Error(data.errors?Object.values(data.errors).flat().join(' '):(data.message||'Unable to save.'));
-   w.saved=true;w.data=data.row;w.advance=data.advance;changed=true;
-   const name=w.name, keptDepartment=dept.value, keptDate=form.elements.salary_date.value;fields.disabled=false;form.reset();dept.value=keptDepartment;search.value='';form.elements.salary_date.value=keptDate;fields.disabled=true;select.value='';options();
+   w.saved=true;w.data=data.row;w.advance=data.advance;w.ledger=data.ledger||[];changed=true;
+   const name=w.name, keptDepartment=dept.value, keptDate=form.elements.salary_date.value;fields.disabled=false;form.reset();dept.value=keptDepartment;search.value='';form.elements.salary_date.value=keptDate;fields.disabled=true;select.value='';options();renderLedger(w);document.getElementById('sm-extra-details').open=false;document.getElementById('sm-entry-preview').replaceChildren();
    message.hidden=false;message.className='alert alert-success';message.textContent=name+' saved. Select the next worker.';
   }catch(error){message.hidden=false;message.className='alert alert-danger';message.textContent=error.message;}
   finally{saving=false;button.disabled=false;button.textContent='Save & Select Next Worker';}

@@ -44,7 +44,7 @@ class SalaryManagementController extends Controller {
    if (($data['entry_advance_amount']??0)>0) $row->advances()->create(['amount'=>$data['entry_advance_amount'],'advance_week'=>$data['entry_advance_week'],'advance_date'=>$data['entry_advance_date'],'reason'=>$data['entry_advance_reason']??null]);
    return $row;
   });
-  if ($request->expectsJson()) return response()->json(['message'=>'Salary saved.','row'=>$row->fresh()->toArray(),'advance'=>$row->load('advances')->figures()['advance']]);
+  if ($request->expectsJson()) return response()->json(['message'=>'Salary saved.','row'=>$row->fresh()->toArray(),'advance'=>$row->load('advances')->figures()['advance'],'ledger'=>$row->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(3,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values()]);
   return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success','Salary details saved.')->with('active_employee',$data['employee_id'])->with('active_tab','salary');
  }
  public function advance(Request $request) {
