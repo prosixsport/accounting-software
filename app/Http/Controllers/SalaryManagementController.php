@@ -17,9 +17,36 @@ class SalaryManagementController extends Controller {
   $employees=Employee::orderBy('department')->orderBy('name')->get();
   $rows=SalaryManagementRow::with('advances')->whereDate('month',$month->toDateString())->get()->keyBy('employee_id');
   $overview=$this->overview($employees,$rows);
-  $revision=hash('sha256',json_encode($overview).$rows->sortKeys()->toJson());
+  $funds=$this->funds($month);
+  $revision=hash('sha256',json_encode([$overview,$funds]).$rows->sortKeys()->toJson());
   if($request->expectsJson()) return response()->json(compact('overview','revision'));
-  return view('salary-management.index',compact('month','employees','rows','overview','revision'));
+  return view('salary-management.index',compact('month','employees','rows','overview','revision','funds'));
+ }
+ private function funds(Carbon $month): array {
+  $end=$month->copy()->endOfMonth()->toDateString();
+  $ledger=[];$totals=['received'=>0,'advance'=>0,'salary'=>0,'expense'=>0,'balance'=>0];
+  foreach(DB::table('salary_cash_entries')->whereDate('entry_date','<=',$end)->orderBy('entry_date')->orderBy('id')->get() as $entry){
+   $receipt=$entry->type==='receipt';$amount=(int)round((float)$entry->amount*100);
+   $totals[$receipt?'received':'expense']+=$amount;
+   $ledger[]=['date'=>$entry->entry_date,'type'=>$receipt?'Funds received':'Other expense / loan given','description'=>$entry->description,'in'=>$receipt?$amount:0,'out'=>$receipt?0:$amount,'order'=>'0-'.$entry->id];
+  }
+  $names=Employee::pluck('name','id');
+  foreach(SalaryManagementRow::with('advances')->whereDate('month','<=',$end)->get() as $row){
+   foreach($row->advances as $advance){
+    $date=$advance->advance_date->toDateString();if($date>$end)continue;
+    $amount=(int)round((float)$advance->amount*100);$totals['advance']+=$amount;
+    $ledger[]=['date'=>$date,'type'=>'Salary advance','description'=>($names[$row->employee_id]??'Employee #'.$row->employee_id).' · '.($advance->reason??''),'in'=>0,'out'=>$amount,'order'=>'1-'.$advance->id];
+   }
+   $date=$row->salary_date ? Carbon::parse($row->salary_date)->toDateString() : $row->month->toDateString();
+   if($row->paid_amount>0 && $date<=$end){
+    $amount=(int)round((float)$row->paid_amount*100);$totals['salary']+=$amount;
+    $ledger[]=['date'=>$date,'type'=>'Final salary paid','description'=>($names[$row->employee_id]??'Employee #'.$row->employee_id).' · Salary '.$row->month->format('F Y'),'in'=>0,'out'=>$amount,'order'=>'2-'.$row->id];
+   }
+  }
+  usort($ledger,fn($a,$b)=>[$a['date'],$a['order']]<=>[$b['date'],$b['order']]);
+  $balance=0;foreach($ledger as &$entry){$balance+=$entry['in']-$entry['out'];$entry['balance']=$balance/100;$entry['week']='Week '.min(5,intdiv(Carbon::parse($entry['date'])->day-1,7)+1);$entry['in']/=100;$entry['out']/=100;unset($entry['order']);}unset($entry);
+  $totals['balance']=$balance;foreach($totals as &$value)$value/=100;unset($value);
+  $totals['ledger']=$ledger;return $totals;
  }
  private function overview($employees,$rows): array {
   return $employees->map(function($e) use($rows) {
@@ -29,6 +56,11 @@ class SalaryManagementController extends Controller {
  }
  public function save(Request $request) {
   $month=$this->month($request);
+  if($request->input('action')==='fund_entry') {
+   $entry=$request->validate(['fund_type'=>['required',Rule::in(['receipt','expense'])],'fund_date'=>['required','date_format:Y-m-d','before_or_equal:today'],'fund_amount'=>['required','numeric','min:0.01','max:9999999999.99'],'fund_description'=>['required','string','max:500']]);
+   DB::table('salary_cash_entries')->insert(['type'=>$entry['fund_type'],'entry_date'=>$entry['fund_date'],'amount'=>$entry['fund_amount'],'description'=>$entry['fund_description'],'created_by'=>$request->user()->id,'created_at'=>now(),'updated_at'=>now()]);
+   return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success','Cash entry saved.');
+  }
   $rules=['employee_id'=>['required',Rule::exists('employees','id')],'notes'=>['nullable','string','max:2000']];
   foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount'] as $f) $rules[$f]=['required','numeric','min:0','max:9999999999.99'];
   $rules['working_hours_per_day']=['required','numeric','multiple_of:1','min:1','max:24'];
@@ -45,6 +77,7 @@ class SalaryManagementController extends Controller {
   if (($data['entry_advance_amount']??0)>0 && (empty($data['entry_advance_date']) || empty($data['entry_advance_week']))) {
    throw \Illuminate\Validation\ValidationException::withMessages(['entry_advance_date'=>'Select advance date and week.']);
   }
+  if(!empty($data['entry_advance_date'])) $data['entry_advance_week']=min(5,intdiv(Carbon::parse($data['entry_advance_date'])->day-1,7)+1);
   $data['day_rate']=round($data['salary']/$month->daysInMonth,2);
   $data['ot_rate']=round($data['day_rate']/$data['working_hours_per_day'],2);
   $row=DB::transaction(function() use($data,$month) {
@@ -60,6 +93,7 @@ class SalaryManagementController extends Controller {
  public function advance(Request $request) {
   $month=$this->month($request);
   $data=$request->validate(['employee_id'=>['required',Rule::exists('employees','id')],'advance_date'=>['required','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()],'advance_week'=>['required','integer','min:1','max:5'],'amount'=>['required','numeric','min:0.01','max:9999999999.99'],'reason'=>['nullable','string','max:1000']]);
+  $data['advance_week']=min(5,intdiv(Carbon::parse($data['advance_date'])->day-1,7)+1);
   DB::transaction(function() use($data,$month) {
    $employee=Employee::findOrFail($data['employee_id']);
    $row=SalaryManagementRow::firstOrCreate(['employee_id'=>$employee->id,'month'=>$month->toDateString()],['salary'=>$employee->basic_salary??0,'day_rate'=>round(($employee->basic_salary??0)/$month->daysInMonth,2)]);
