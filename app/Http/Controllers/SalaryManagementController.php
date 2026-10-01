@@ -26,10 +26,25 @@ class SalaryManagementController extends Controller {
   $rules['absent_days'][]='multiple_of:1';
   $rules['ot_hours'][]='multiple_of:1';
   $rules['absent_days'][]='max:'.$month->daysInMonth;
+  $rules['salary_date']=['nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()];
+  $rules['entry_advance_amount']=['nullable','numeric','min:0','max:9999999999.99'];
+  $rules['entry_advance_week']=['nullable','integer','min:1','max:3'];
+  $rules['entry_advance_date']=['nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()];
+  $rules['entry_advance_reason']=['nullable','string','max:1000'];
   $data=$request->validate($rules);
+  if (($data['entry_advance_amount']??0)>0 && (empty($data['entry_advance_date']) || empty($data['entry_advance_week']))) {
+   throw \Illuminate\Validation\ValidationException::withMessages(['entry_advance_date'=>'Select advance date and week.']);
+  }
   $data['day_rate']=round($data['salary']/$month->daysInMonth,2);
   $data['ot_rate']=round($data['day_rate']/$data['working_hours_per_day'],2);
-  SalaryManagementRow::updateOrCreate(['employee_id'=>$data['employee_id'],'month'=>$month->toDateString()],$data);
+  $row=DB::transaction(function() use($data,$month) {
+   $salaryData=$data;
+   foreach(['entry_advance_amount','entry_advance_week','entry_advance_date','entry_advance_reason'] as $field) unset($salaryData[$field]);
+   $row=SalaryManagementRow::updateOrCreate(['employee_id'=>$data['employee_id'],'month'=>$month->toDateString()],$salaryData);
+   if (($data['entry_advance_amount']??0)>0) $row->advances()->create(['amount'=>$data['entry_advance_amount'],'advance_week'=>$data['entry_advance_week'],'advance_date'=>$data['entry_advance_date'],'reason'=>$data['entry_advance_reason']??null]);
+   return $row;
+  });
+  if ($request->expectsJson()) return response()->json(['message'=>'Salary saved.','row'=>$row->fresh()->toArray(),'advance'=>$row->load('advances')->figures()['advance']]);
   return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success','Salary details saved.')->with('active_employee',$data['employee_id'])->with('active_tab','salary');
  }
  public function advance(Request $request) {

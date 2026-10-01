@@ -30,11 +30,25 @@ body{font-family:Arial,sans-serif;color:#111;margin:24px}h1{font-size:21px;text-
  .sheet-page .scroll{overflow:visible}
  .salary-slip{break-after:page}.salary-slip:last-of-type{break-after:auto}
 }
+
+/* Two individual slips per A4 portrait sheet. */
+@if($single)
+@page{size:A4 portrait;margin:6mm}
+.slip-pair{width:198mm;max-width:100%;margin:0 auto 20px;display:grid;grid-template-rows:140mm 140mm;gap:3mm;break-after:page}
+.slip-pair:last-of-type{break-after:auto}
+.salary-slip{width:100%;height:140mm;box-sizing:border-box;padding:5mm;margin:0;break-after:auto;box-shadow:none;border:1px solid black;overflow:visible}
+.slip-top h2{font-size:17px}.slip-top p{font-size:10px;margin:3px 0}.slip-photo{width:18mm;height:22mm;font-size:20px}
+.salary-slip hr{margin:3px 0}.employee-info{font-size:9px;gap:4mm}.employee-info p{margin:2px 0}
+.salary-slip table{font-size:9px}.salary-slip td,.salary-slip th{padding:2px 5px;line-height:1.15}.salary-slip h3{font-size:10px;margin:5px 0 3px}.slip-signatures{margin-top:7mm;gap:10mm}.slip-signatures span{font-size:9px;padding-top:3px}
+@media print{.slip-pair{width:100%;margin:0;break-after:page}.slip-pair:last-of-type{break-after:auto}.salary-slip{padding:5mm;break-after:auto!important}.slip-pair .salary-slip:last-of-type{break-after:auto!important}}
+@endif
 </style></head><body><div class="toolbar"><button onclick="window.print()">Print / Save PDF</button> <a href="{{ route('salary-management.index',['month'=>$month->format('Y-m')]) }}">Back to Salary Management</a></div>
 
 
 @if($single)
-@foreach($employees as $e)
+@foreach($employees->chunk(2) as $slipPair)
+<div class="slip-pair">
+@foreach($slipPair as $e)
 @php
 $r=$rows->get($e->id); $f=$r->figures();
 $pictures=$e->pictures;
@@ -50,16 +64,17 @@ $initial=mb_strtoupper(mb_substr(trim($e->name??'?'),0,1));
 <section class="salary-slip">
 <div class="slip-top"><div><h2>Accounts System</h2><p>Employee Salary Slip</p><p><strong>Month:</strong> {{ $month->format('F Y') }}</p></div><div class="slip-photo"><span>{{ $initial }}</span>@if($photoUrl)<img src="{{ $photoUrl }}" alt="Employee Photo" onerror="this.remove()">@endif</div></div>
 <hr>
-<div class="employee-info"><div><p><strong>Name:</strong> {{ $e->name }}</p><p><strong>Father Name:</strong> {{ $e->father_name ?? '-' }}</p><p><strong>Phone:</strong> {{ $e->phone ?? '-' }}</p><p><strong>CNIC:</strong> {{ $e->cnic ?? '-' }}</p></div><div><p><strong>Department:</strong> {{ $e->department ?? '-' }}</p><p><strong>Designation:</strong> {{ $e->designation ?? '-' }}</p><p><strong>Slip Date:</strong> {{ now()->format('d M Y') }}</p><p><strong>Employee Code:</strong> {{ $e->employee_code ?? '-' }}</p></div></div>
+<div class="employee-info"><div><p><strong>Name:</strong> {{ $e->name }}</p><p><strong>Father Name:</strong> {{ $e->father_name ?? '-' }}</p><p><strong>Phone:</strong> {{ $e->phone ?? '-' }}</p><p><strong>CNIC:</strong> {{ $e->cnic ?? '-' }}</p></div><div><p><strong>Department:</strong> {{ $e->department ?? '-' }}</p><p><strong>Designation:</strong> {{ $e->designation ?? '-' }}</p><p><strong>Slip Date:</strong> {{ $r->salary_date ? \Illuminate\Support\Carbon::parse($r->salary_date)->format('d M Y') : $month->format('d M Y') }}</p><p><strong>Employee Code:</strong> {{ $e->employee_code ?? '-' }}</p></div></div>
 <table class="salary-table"><tbody>
-@foreach(['Monthly Salary'=>$r->salary,'Absent Days'=>$r->absent_days,'Absence Deduction'=>$f['absence'],'Salary After Absence Deduction'=>$r->salary-$f['absence'],'Overtime Amount'=>$f['ot'],'Total Advances (Weeks 1–3)'=>$f['advance'],'Loan Deduction'=>$r->loan_deduction,'Other Deduction'=>$r->other_deduction,'Net Salary'=>$f['net'],'Previous Due'=>$r->overdue,'Final Payable Salary'=>$f['net']+$r->overdue,'Final Salary Already Paid'=>$r->paid_amount,'Remaining Due'=>$f['due']] as $label=>$value)
-<tr class="{{ in_array($label,['Final Payable Salary','Remaining Due'])?'final-row':'' }}"><th>{{ $label }}</th><td>@if($label==='Absent Days'){{ number_format($value,2) }} days @else Rs {{ number_format($value,2) }} @endif</td></tr>
+@foreach(['Monthly Salary'=>$r->salary,'Absent Days'=>$r->absent_days,'Absence Rate / Day'=>$r->day_rate,'Absence Deduction'=>$f['absence'],'Salary After Absence Deduction'=>$r->salary-$f['absence'],'OT Hours'=>$r->ot_hours,'OT Rate / Hour'=>$r->ot_rate,'Overtime Amount'=>$f['ot'],'Total Advances (Weeks 1–3)'=>$f['advance'],'Loan Deduction'=>$r->loan_deduction,'Other Deduction'=>$r->other_deduction,'Net Salary'=>$f['net'],'Previous Due'=>$r->overdue,'Final Payable Salary'=>$f['net']+$r->overdue,'Final Salary Already Paid'=>$r->paid_amount,'Remaining Due'=>$f['due']] as $label=>$value)
+<tr class="{{ in_array($label,['Final Payable Salary','Remaining Due'])?'final-row':'' }}"><th>{{ $label }}</th><td>@if($label==='Absent Days'){{ number_format($value,0) }} days @elseif($label==='OT Hours'){{ number_format($value,0) }} hours @else Rs {{ number_format($value,2) }} @endif</td></tr>
 @endforeach
 </tbody></table>
-<h3>Advance Details</h3><table class="advance-table"><thead><tr><th>Date</th><th>Week</th><th>Amount</th><th>Remarks</th></tr></thead><tbody>@forelse($r->advances as $a)<tr><td>{{ $a->advance_date->format('d M Y') }}</td><td>Week {{ $a->advance_week ?? min(3,intdiv($a->advance_date->day-1,7)+1) }}</td><td>Rs {{ number_format($a->amount,2) }}</td><td>{{ $a->reason ?? '-' }}</td></tr>@empty<tr><td colspan="4">No advance found</td></tr>@endforelse</tbody></table>
-@if($r->notes)<p class="note">{{ $r->notes }}</p>@endif
+<h3>Weekly Advances</h3><table class="advance-table"><thead><tr><th>Week 1</th><th>Week 2</th><th>Week 3</th><th>Total Advance</th></tr></thead><tbody><tr>@for($week=1;$week<=3;$week++)<td>Rs {{ number_format($r->advances->filter(fn($a)=>(int)($a->advance_week ?? min(3,intdiv($a->advance_date->day-1,7)+1))===$week)->sum('amount'),2) }}</td>@endfor<td>Rs {{ number_format($f['advance'],2) }}</td></tr></tbody></table>
 <div class="slip-signatures"><span>Employee Signature</span><span>Authorized Signature</span></div>
 </section>
+@endforeach
+</div>
 @endforeach
 @else
 @php

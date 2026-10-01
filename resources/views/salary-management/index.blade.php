@@ -91,7 +91,7 @@
 
         <div><div class="sm-eyebrow">Salary Workers / Monthly Records</div><h3>Salary Management</h3><p>3 weekly advances · Last-week salary payment · Employee slips</p></div>
 
-        <a class="sm-btn" href="{{ route('payrolls.index') }}"><i class="bi bi-wallet2" aria-hidden="true"></i> Employees Payroll</a>
+        <div class="sm-actions"><button type="button" class="sm-btn sm-btn-primary" id="sm-add-salary">+ Add Salary</button><a class="sm-btn" href="{{ route('payrolls.index') }}"><i class="bi bi-wallet2" aria-hidden="true"></i> Employees Payroll</a></div>
 
     </header>
 
@@ -358,6 +358,7 @@
                         @csrf
 
                         <input type="hidden" name="month" value="{{ $monthKey }}"><input type="hidden" name="employee_id" value="{{ $employee->id }}">
+                        <label class="sm-label">Salary Date</label><input class="sm-control" type="date" name="salary_date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}" value="{{ $restore ? old('salary_date', $row?->salary_date ?? ($month->isSameMonth(now()) ? now()->toDateString() : $month->toDateString())) : ($row?->salary_date ?? ($month->isSameMonth(now()) ? now()->toDateString() : $month->toDateString())) }}">
 
                         @foreach($groups as $group)
 
@@ -642,6 +643,84 @@
 
 })();
 
+</script>
+
+
+@php
+$entryWorkers=$employees->map(function($e) use($rows) {
+ $r=$rows->get($e->id);
+ $data=[];
+ foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount','working_hours_per_day','salary_date','notes'] as $field) $data[$field]=$r?->{$field};
+ return ['id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
+})->values();
+@endphp
+<dialog id="sm-batch-dialog" style="width:min(1050px,95vw);max-height:92vh;border:1px solid #ddd;border-radius:14px;padding:0">
+ <div style="padding:24px"><div class="d-flex justify-content-between"><div><h4>Add Salary — {{ $month->format('F Y') }}</h4><p class="sm-hint">Save one worker, then select the next. Department stays selected.</p></div><button class="sm-btn" type="button" id="sm-batch-close">Back to List</button></div>
+ <div id="sm-batch-message" role="status" class="alert" hidden></div>
+ <form id="sm-batch-form" action="{{ route('salary-management.save') }}" method="post">
+ @csrf <input type="hidden" name="month" value="{{ $monthKey }}">
+ <div class="row g-3 mb-3"><div class="col-md-4"><label class="sm-label" for="sm-entry-dept">Department</label><select class="sm-control" id="sm-entry-dept"><option value="">All Departments</option>@foreach($departments as $d)<option value="{{ $d }}">{{ $d }}</option>@endforeach</select></div>
+ <div class="col-md-4"><label class="sm-label" for="sm-entry-search">Search Worker</label><input class="sm-control" id="sm-entry-search" type="search" placeholder="Name or employee code"></div>
+ <div class="col-md-4"><label class="sm-label" for="sm-entry-worker">Worker · Department · Record</label><select class="sm-control" id="sm-entry-worker" name="employee_id" required><option value="">Select Worker</option></select></div></div>
+ <fieldset id="sm-entry-fields" disabled style="border:0;padding:0">
+ <label class="sm-label">Salary Date</label><input class="sm-control mb-3" name="salary_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}" value="{{ $month->isSameMonth(now()) ? now()->toDateString() : $month->toDateString() }}" required>
+ <div class="row g-3">@foreach($groups as $group) @foreach($group['fields'] as $field=>$label)<div class="col-md-4"><label class="sm-label">{{ $label }}</label><input class="sm-control" type="number" name="{{ $field }}" min="0" max="{{ $field==='absent_days' ? $month->daysInMonth : '9999999999.99' }}" step="{{ in_array($field,['absent_days','ot_hours']) ? 1 : '0.01' }}" value="0" @if(in_array($field,['day_rate','ot_rate'])) readonly @endif required></div>@endforeach @endforeach
+ <div class="col-md-4"><label class="sm-label">Working Hours Per Day</label><input class="sm-control" name="working_hours_per_day" type="number" min="1" max="24" step="1" value="8" required></div>
+ <div class="col-12"><label class="sm-label">Notes</label><textarea class="sm-control" name="notes" maxlength="2000"></textarea></div></div>
+ <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>Existing advances remain saved. These fields add one new payment.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week"><option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option></select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div></section>
+ <div class="alert alert-info" id="sm-entry-preview" aria-live="polite"></div>
+ <button class="sm-btn sm-btn-primary" type="submit" id="sm-entry-save">Save & Select Next Worker</button>
+ </fieldset></form></div>
+</dialog>
+<script>
+(function(){
+ const workers={{ \Illuminate\Support\Js::from($entryWorkers) }};
+ const dialog=document.getElementById('sm-batch-dialog'), form=document.getElementById('sm-batch-form');
+ const dept=document.getElementById('sm-entry-dept'), search=document.getElementById('sm-entry-search'), select=document.getElementById('sm-entry-worker'), fields=document.getElementById('sm-entry-fields'), message=document.getElementById('sm-batch-message');
+ const dateDefault=form.elements.salary_date.value, days={{ $month->daysInMonth }};
+ let changed=false, saving=false;
+ const num=n=>Number(form.elements.namedItem(n).value)||0, round=n=>Math.round((n+Number.EPSILON)*100)/100;
+ const money=n=>'Rs '+n.toLocaleString('en-PK',{minimumFractionDigits:2,maximumFractionDigits:2});
+ function options(){
+  const selected=select.value, q=search.value.trim().toLocaleLowerCase();
+  select.replaceChildren(new Option('Select Worker',''));
+  workers.filter(w=>(!dept.value || w.department===dept.value) && (w.name+' '+w.code).toLocaleLowerCase().includes(q)).forEach(w=>select.add(new Option(w.name+' · '+(w.department||'No Department')+' · '+(w.saved?'Saved':'Not Saved'),String(w.id))));
+  select.value=selected;
+  if(!select.value){fields.disabled=true;}
+ }
+ function preview(){
+  const w=workers.find(w=>String(w.id)===select.value);if(!w)return;
+  const day=round(num('salary')/days), hrs=num('working_hours_per_day');
+  form.elements.day_rate.value=day.toFixed(2);form.elements.ot_rate.value=(hrs>=1&&hrs<=24?round(day/hrs):0).toFixed(2);
+  const advances=Number(w.advance)+num('entry_advance_amount');
+  const net=round(num('salary')+round(num('ot_hours')*num('ot_rate'))-round(num('absent_days')*day)-advances-num('loan_deduction')-num('other_deduction'));
+  document.getElementById('sm-entry-preview').textContent='Total Advance: '+money(advances)+' · Net Pay: '+money(net)+' · Remaining Due: '+money(round(net+num('overdue')-num('paid_amount')));
+ }
+ function load(){
+  const w=workers.find(w=>String(w.id)===select.value);fields.disabled=!w;if(!w)return;
+  for(const [key,val] of Object.entries(w.data)){if(form.elements.namedItem(key))form.elements.namedItem(key).value=val??(key==='salary'?w.basic_salary:key==='working_hours_per_day'?8:key==='salary_date'?dateDefault:key==='notes'?'':0);}
+  form.elements.entry_advance_amount.value=0;form.elements.entry_advance_date.value=form.elements.salary_date.value;form.elements.entry_advance_reason.value='';preview();
+ }
+ document.getElementById('sm-add-salary').addEventListener('click',()=>{options();dialog.showModal();});
+ document.getElementById('sm-batch-close').addEventListener('click',()=>{if(!saving)dialog.close();});
+ dialog.addEventListener('cancel',e=>{if(saving)e.preventDefault();});
+ dialog.addEventListener('close',()=>{if(changed)window.location.reload();});
+ dept.addEventListener('change',()=>{select.value='';search.value='';options();});search.addEventListener('input',options);select.addEventListener('change',load);form.addEventListener('input',preview);
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();if(saving || !form.reportValidity())return;
+  const w=workers.find(w=>String(w.id)===select.value);if(!w)return;
+  if(num('entry_advance_amount')>0 && !form.elements.entry_advance_date.value){form.elements.entry_advance_date.reportValidity();message.hidden=false;message.className='alert alert-danger';message.textContent='Enter the advance date.';return;}
+  saving=true;const button=document.getElementById('sm-entry-save');button.disabled=true;button.textContent='Saving…';message.hidden=true;
+  try{
+   const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
+   const data=await response.json();if(!response.ok)throw new Error(data.errors?Object.values(data.errors).flat().join(' '):(data.message||'Unable to save.'));
+   w.saved=true;w.data=data.row;w.advance=data.advance;changed=true;
+   const name=w.name, keptDepartment=dept.value, keptDate=form.elements.salary_date.value;fields.disabled=false;form.reset();dept.value=keptDepartment;search.value='';form.elements.salary_date.value=keptDate;fields.disabled=true;select.value='';options();
+   message.hidden=false;message.className='alert alert-success';message.textContent=name+' saved. Select the next worker.';
+  }catch(error){message.hidden=false;message.className='alert alert-danger';message.textContent=error.message;}
+  finally{saving=false;button.disabled=false;button.textContent='Save & Select Next Worker';}
+ });
+})();
 </script>
 
 @endsection
