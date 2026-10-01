@@ -53,7 +53,7 @@
 
         'deductions' => ['title'=>'Deductions & Payment', 'description'=>'Enter the deductions and salary payments for this month.', 'fields'=>[
 
-            'loan_deduction'=>'Loan Deduction This Month', 'other_deduction'=>'Other Deduction', 'overdue'=>'Previous Due', 'paid_amount'=>'Final Salary Paid (Last Week)',
+            'loan_deduction'=>'Loan Deduction This Month', 'other_deduction'=>'Other Deduction', 'overdue'=>'Previous Due', 'paid_amount'=>'Final Salary Paid (Final Settlement)',
 
         ]],
 
@@ -105,18 +105,20 @@
 
     <div class="sm-stats">
 
-        <div class="sm-stat"><div class="sm-stat-label">All Employees</div><strong>{{ $employees->count() }}</strong><small>{{ $savedRows->count() }} salary records saved</small></div>
+        <button type="button" class="sm-stat" data-summary="employees" aria-expanded="false" aria-controls="sm-summary-panel"><div class="sm-stat-label">All Employees</div><strong>{{ $employees->count() }}</strong><small>{{ $savedRows->count() }} salary records saved</small></button>
 
-        <div class="sm-stat"><div class="sm-stat-label">Monthly Salaries</div><strong>Rs {{ number_format($totalSalary, 2) }}</strong><small>{{ $month->format('F Y') }}</small></div>
+        <button type="button" class="sm-stat" data-summary="salary" aria-expanded="false" aria-controls="sm-summary-panel"><div class="sm-stat-label">Monthly Salaries</div><strong>Rs {{ number_format($totalSalary, 2) }}</strong><small>{{ $month->format('F Y') }}</small></button>
 
-        <div class="sm-stat"><div class="sm-stat-label">Total Advances</div><strong>Rs {{ number_format($totalAdvance, 2) }}</strong><small>All saved employee records</small></div>
+        <button type="button" class="sm-stat" data-summary="advance" aria-expanded="false" aria-controls="sm-summary-panel"><div class="sm-stat-label">Total Advances</div><strong>Rs {{ number_format($totalAdvance, 2) }}</strong><small>All saved employee records</small></button>
 
-        <div class="sm-stat"><div class="sm-stat-label">Net Salary</div><strong>Rs {{ number_format($totalNet, 2) }}</strong><small>After additions and deductions</small></div>
+        <button type="button" class="sm-stat" data-summary="net" aria-expanded="false" aria-controls="sm-summary-panel"><div class="sm-stat-label">Net Salary</div><strong>Rs {{ number_format($totalNet, 2) }}</strong><small>After additions and deductions</small></button>
 
-        <div class="sm-stat sm-stat-accent"><div class="sm-stat-label">Remaining Due</div><strong>Rs {{ number_format($totalDue, 2) }}</strong><small>Includes previous dues and payments</small></div>
+        <button type="button" class="sm-stat sm-stat-accent" data-summary="due" aria-expanded="false" aria-controls="sm-summary-panel"><div class="sm-stat-label">Remaining Due</div><strong>Rs {{ number_format($totalDue, 2) }}</strong><small>Includes previous dues and payments</small></button>
 
     </div>
 
+<section id="sm-summary-panel" class="sm-card" hidden style="padding:18px;margin-bottom:18px"><div class="d-flex justify-content-between"><strong id="sm-summary-title"></strong><button type="button" class="sm-btn sm-btn-small" id="sm-summary-close">Close</button></div><p class="sm-hint" id="sm-summary-note"></p><div class="table-responsive" style="max-height:320px"><table class="table table-sm"><thead id="sm-summary-head"></thead><tbody id="sm-summary-body"></tbody><tfoot id="sm-summary-foot"></tfoot></table></div></section>
+<p class="sm-hint" style="text-align:right" id="sm-live-state">Live totals · click a card to see employee details</p>
     <section class="sm-card" aria-label="All employee salary records">
 
         <p class="sm-hint" style="padding:16px 20px 0;margin:0">Records for {{ $month->format('F Y') }}</p>
@@ -134,16 +136,16 @@
             </form>
 
             <div class="sm-actions">
+                <div><label class="sm-label" for="sm-weeks-show">Weeks to Show</label><select class="sm-control" id="sm-weeks-show">@for($w=1;$w<=5;$w++)<option value="{{ $w }}" @selected($w===5)>{{ $w }} {{ $w===1?'Week':'Weeks' }}</option>@endfor</select></div>
+                @foreach(['dates'=>'Date-wise Sheet', 'weeks'=>'Weekly Salary Sheet'] as $mode=>$label)
 
-                @foreach(['dates'=>'Date-wise Sheet', 'weeks'=>'3-Week Salary Sheet'] as $mode=>$label)
+                    @if($savedRows->isNotEmpty())
 
-                    @if($allSaved)
-
-                        <a target="_blank" rel="noopener" class="sm-btn" href="{{ route('salary-management.print', ['month'=>$monthKey, 'mode'=>$mode]) }}"><i class="bi bi-printer" aria-hidden="true"></i> {{ $label }}</a>
+                        <a target="_blank" rel="noopener" class="sm-btn" data-saved-print href="{{ route('salary-management.print', ['month'=>$monthKey, 'mode'=>$mode,'scope'=>'all','week_count'=>5]) }}"><i class="bi bi-printer" aria-hidden="true"></i> {{ $label }}</a>
 
                     @else
 
-                        <button type="button" class="sm-btn" disabled title="Save salary details for all employees before printing">{{ $label }}</button>
+                        <button type="button" class="sm-btn" disabled title="Save at least one salary record to print">{{ $label }}</button>
 
                     @endif
 
@@ -168,7 +170,7 @@
             <input type="hidden" name="scope" value="selected">
             <div class="sm-actions">
                 <label class="sm-label" for="salary-print-mode">Print format</label>
-                <select class="sm-control" style="width:auto" id="salary-print-mode" name="mode"><option value="slips">Individual Salary Slips</option><option value="weeks">3-Week Salary Sheet</option><option value="dates">Date-wise Sheet</option></select>
+                <input type="hidden" name="week_count" id="sm-print-week-count" value="5"><select class="sm-control" style="width:auto" id="salary-print-mode" name="mode"><option value="slips">Individual Salary Slips</option><option value="weeks">Weekly Salary Sheet</option><option value="dates">Date-wise Sheet</option></select>
                 <button type="submit" id="salary-print-selected" class="sm-btn sm-btn-primary" disabled>Print Selected (0)</button>
             </div>
             <p class="sm-hint mb-0 mt-2">Select workers, choose the print format, then press Print Selected.</p>
@@ -277,7 +279,7 @@
 
         <div class="sm-empty" id="salary-no-results" hidden>No employees match your filters.</div>
 
-        <p class="sm-note">Totals use saved records for {{ $month->format('F Y') }}. @unless($allSaved)Save salary details for all employees to enable the combined salary sheets.@endunless</p>
+        <p class="sm-note">Totals use saved records for {{ $month->format('F Y') }}. Combined sheets print saved workers only; unsaved workers are skipped.</p>
 
     </section>
 
@@ -406,7 +408,7 @@
 
             <div data-tab-panel="advances" hidden style="padding:22px">
 
-                <section class="sm-section"><h5>Add Weekly Advance</h5><p>Record advances for Week 1, Week 2 or Week 3. Pay the remaining salary in the last week using Salary Details.</p>
+                <section class="sm-section"><h5>Add Weekly Advance</h5><p>Record advances for Weeks 1 to 5. Pay the remaining salary in the last week using Salary Details.</p>
 
                     <form method="post" action="{{ route('salary-management.advance') }}">
 
@@ -416,11 +418,11 @@
 
                         <label class="sm-label" for="sm-week-{{ $employee->id }}">Advance Week</label>
                         <select class="sm-control sm-advance-week mb-3" id="sm-week-{{ $employee->id }}" name="advance_week" required data-month="{{ $monthKey }}">
-                            @for($week = 1; $week <= 3; $week++)
+                            @for($week = 1; $week <= 5; $week++)
                                 <option value="{{ $week }}" @selected($restore && (int)old('advance_week',1)===$week)>Week {{ $week }} Advance</option>
                             @endfor
                         </select>
-                        <p class="sm-hint">Choose one of the three advance weeks and the actual payment date. The last-week salary is recorded separately; do not add it as another advance.</p>
+                        <p class="sm-hint">Choose one of the five advance weeks and the actual payment date. The last-week salary is recorded separately; do not add it as another advance.</p>
                         <div class="sm-fields"><div><label class="sm-label" for="sm-date-{{ $employee->id }}">Advance Date</label><input class="sm-control" id="sm-date-{{ $employee->id }}" type="date" name="advance_date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}" value="{{ $restore ? old('advance_date', $month->isSameMonth(now()) ? now()->toDateString() : $month->toDateString()) : ($month->isSameMonth(now()) ? now()->toDateString() : $month->toDateString()) }}" required></div><div><label class="sm-label" for="sm-amount-{{ $employee->id }}">Advance Amount</label><input class="sm-control" id="sm-amount-{{ $employee->id }}" name="amount" type="number" min="0.01" max="9999999999.99" step="0.01" value="{{ $restore ? old('amount') : '' }}" required></div></div>
 
                         <label class="sm-label mt-3" for="sm-reason-{{ $employee->id }}">Reason / Remarks</label><input class="sm-control" id="sm-reason-{{ $employee->id }}" name="reason" maxlength="1000" value="{{ $restore ? old('reason') : '' }}" placeholder="Enter the purpose of this advance"><button type="submit" class="sm-btn sm-btn-primary mt-3">Add Advance</button>
@@ -429,11 +431,11 @@
 
                 </section>
 
-                <div class="sm-week-grid">@for($w=1; $w<=3; $w++)<div class="sm-week"><span class="sm-label">Week {{ $w }}</span><small>Advance installment</small><strong>Rs {{ number_format($advances->filter(fn($a)=>(int)($a->advance_week ?? min(3,intdiv($a->advance_date->day-1,7)+1))===$w)->sum('amount'),2) }}</strong></div>@endfor</div>
+                <div class="sm-week-grid">@for($w=1; $w<=5; $w++)<div class="sm-week"><span class="sm-label">Week {{ $w }}</span><small>Advance installment</small><strong>Rs {{ number_format($advances->filter(fn($a)=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1))===$w)->sum('amount'),2) }}</strong></div>@endfor</div>
 
                 <div class="sm-table-wrap"><table class="sm-table" style="min-width:600px"><thead><tr><th>Date</th><th>Week</th><th>Reason</th><th class="sm-money">Amount</th><th></th></tr></thead><tbody>
 
-                    @forelse($advances as $advance)<tr><td>{{ $advance->advance_date->format('d M Y') }}</td><td>Week {{ $advance->advance_week ?? min(3,intdiv($advance->advance_date->day-1,7)+1) }}</td><td>{{ $advance->reason ?? '—' }}</td><td class="sm-money">Rs {{ number_format($advance->amount,2) }}</td><td><form method="post" action="{{ route('salary-management.advance.delete',$advance) }}" onsubmit="return confirm('Remove this advance payment?')">@csrf @method('DELETE')<button class="sm-btn sm-btn-small sm-btn-delete" type="submit">Remove</button></form></td></tr>@empty<tr><td colspan="5" class="sm-empty">No advances added for this employee this month.</td></tr>@endforelse
+                    @forelse($advances as $advance)<tr><td>{{ $advance->advance_date->format('d M Y') }}</td><td>Week {{ $advance->advance_week ?? min(5,intdiv($advance->advance_date->day-1,7)+1) }}</td><td>{{ $advance->reason ?? '—' }}</td><td class="sm-money">Rs {{ number_format($advance->amount,2) }}</td><td><form method="post" action="{{ route('salary-management.advance.delete',$advance) }}" onsubmit="return confirm('Remove this advance payment?')">@csrf @method('DELETE')<button class="sm-btn sm-btn-small sm-btn-delete" type="submit">Remove</button></form></td></tr>@empty<tr><td colspan="5" class="sm-empty">No advances added for this employee this month.</td></tr>@endforelse
 
                 </tbody><tfoot><tr><td colspan="3"><strong>Total Advance</strong></td><td class="sm-money"><strong>Rs {{ number_format($figures['advance'],2) }}</strong></td><td></td></tr></tfoot></table></div>
 
@@ -651,7 +653,7 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  $r=$rows->get($e->id);
  $data=[];
  foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount','working_hours_per_day','salary_date','notes'] as $field) $data[$field]=$r?->{$field};
- return ['id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(3,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
+ return ['id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
 })->values();
 @endphp
 <dialog id="sm-batch-dialog" class="salary-manager" style="width:min(960px,95vw);max-height:92vh;border:1px solid #ddd;border-radius:16px;padding:0;overflow:hidden">
@@ -674,7 +676,7 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  @foreach(['loan_balance'=>'Loan Balance — information only','loan_deduction'=>'Loan Installment to Deduct','other_deduction'=>'Other Deduction','overdue'=>'Previous Unpaid Salary (+)','paid_amount'=>'Final Salary Already Paid'] as $field=>$label)<div class="col-md-4"><label class="sm-label">{{ $label }}</label><input class="sm-control" name="{{ $field }}" type="number" min="0" max="9999999999.99" step="0.01" value="0" required></div>@endforeach
  <div class="col-12"><label class="sm-label">Notes</label><textarea class="sm-control" name="notes" maxlength="2000"></textarea></div>
  </div><p class="sm-hint mt-2">Loan balance does not reduce salary. Only the entered loan installment is deducted.</p></details>
- <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>Existing advances remain saved. These fields add one new payment.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week"><option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option></select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div></section>
+ <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>Existing advances remain saved. These fields add one new payment.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week"><option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option><option value="4">Week 4</option><option value="5">Week 5</option></select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div></section>
  <section class="sm-section mt-3"><h5 id="sm-ledger-title">Saved Advance Record</h5><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Week</th><th>Amount</th><th>Reason</th></tr></thead><tbody id="sm-entry-ledger"></tbody></table></div><div class="sm-hint" id="sm-entry-week-totals"></div><p class="sm-hint">New advances appear here after saving. Each payment is deducted once.</p></section>
  <div class="alert alert-info" id="sm-entry-preview" aria-live="polite"></div>
  </fieldset></form></div>
@@ -695,11 +697,11 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  function renderLedger(w){
   const body=document.getElementById('sm-entry-ledger');body.replaceChildren();
   document.getElementById('sm-ledger-title').textContent='Saved Advance Record'+(w?' — '+w.name:'');
-  const ledger=w?.ledger||[], totals=[0,0,0];
+  const ledger=w?.ledger||[], totals=[0,0,0,0,0];
   for(const a of ledger){
    const tr=document.createElement('tr');
    for(const text of [a.date,'Week '+a.week,money(Number(a.amount)),a.reason||'—']){const td=document.createElement('td');td.textContent=text;tr.appendChild(td);}body.appendChild(tr);
-   if(a.week>=1&&a.week<=3)totals[a.week-1]+=Number(a.amount);
+   if(a.week>=1&&a.week<=5)totals[a.week-1]+=Number(a.amount);
   }
   if(!ledger.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.textContent='No saved advances for this worker.';tr.appendChild(td);body.appendChild(tr);}
   document.getElementById('sm-entry-week-totals').textContent=totals.map((n,i)=>'Week '+(i+1)+': '+money(n)).join(' · ');
@@ -764,7 +766,7 @@ $entryWorkers=$employees->map(function($e) use($rows) {
   try{
    const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
    const data=await response.json();if(!response.ok)throw new Error(data.errors?Object.values(data.errors).flat().join(' '):(data.message||'Unable to save.'));
-   w.saved=true;w.data=data.row;w.advance=data.advance;w.ledger=data.ledger||[];changed=true;
+   w.saved=true;w.data=data.row;w.advance=data.advance;w.ledger=data.ledger||[];changed=true;document.dispatchEvent(new Event('salary-record-saved'));
    const name=w.name, keptDepartment=dept.value, keptDate=form.elements.salary_date.value;dateDefault=keptDate;fields.disabled=false;form.reset();dept.value=keptDepartment;search.value='';form.elements.salary_date.value=keptDate;fields.disabled=true;select.value='';options();renderLedger(w);document.getElementById('sm-extra-details').open=false;document.getElementById('sm-entry-preview').replaceChildren();
    message.hidden=false;message.className='alert alert-success';message.textContent=name+' salary saved.';pickNext();
   }catch(error){message.hidden=false;message.className='alert alert-danger';message.textContent=error.message;}
@@ -785,6 +787,65 @@ $entryWorkers=$employees->map(function($e) use($rows) {
 #sm-entry-ledger td,#sm-entry-ledger th{font-size:12px}
 .salary-manager .sm-stat{padding:16px}.salary-manager .sm-stat small{font-size:12px}.salary-manager .sm-toolbar{gap:12px}.salary-manager .sm-table td{padding-top:12px;padding-bottom:12px}
 @media(max-width:640px){#sm-batch-dialog footer{flex-direction:column;align-items:stretch!important}#sm-entry-progress{font-size:11px}#sm-entry-save{width:100%}}
+</style>
+
+
+<script>
+(function(){
+ let overview={{ \Illuminate\Support\Js::from($overview) }}, revision={{ \Illuminate\Support\Js::from($revision) }}, current=null, busy=false;
+ const weeks=document.getElementById('sm-weeks-show'),panel=document.getElementById('sm-summary-panel');
+ const money=n=>'Rs '+Number(n).toLocaleString('en-PK',{minimumFractionDigits:2,maximumFractionDigits:2});
+ const selectedAdvance=w=>(w.ledger||[]).filter(a=>Number(a.week)<=Number(weeks.value)).reduce((sum,a)=>sum+Number(a.amount),0);
+ function row(parent,values,tag='td') {const tr=document.createElement('tr');for(const val of values){const cell=document.createElement(tag);cell.textContent=val;tr.appendChild(cell);}parent.appendChild(tr);}
+ function render(){
+  const saved=overview.filter(w=>w.saved);
+  const totals={employees:overview.length,salary:saved.reduce((s,w)=>s+w.salary,0),advance:saved.reduce((s,w)=>s+selectedAdvance(w),0),net:saved.reduce((s,w)=>s+w.net,0),due:saved.reduce((s,w)=>s+w.due,0)};
+  document.querySelectorAll('[data-summary]').forEach(button=>{button.querySelector('strong').textContent=button.dataset.summary==='employees'?totals.employees:money(totals[button.dataset.summary]);button.setAttribute('aria-expanded',String(current===button.dataset.summary));});
+  document.querySelector('[data-summary="employees"] small').textContent=saved.length+' saved · '+(overview.length-saved.length)+' pending';
+  document.querySelector('[data-summary="advance"] small').textContent='Weeks 1–'+weeks.value+' · click for payment details';
+  if(!current){panel.hidden=true;return;}panel.hidden=false;
+  const titles={employees:'All Employees',salary:'Saved Monthly Salaries',advance:'Advance Payments — Weeks 1–'+weeks.value,net:'Monthly Net Salary',due:'Remaining Salary Due'};
+  document.getElementById('sm-summary-title').textContent=titles[current];
+  document.getElementById('sm-summary-note').textContent=current==='advance'?'Shows saved payments for the selected weeks.':'Salary, net and due are monthly totals. Net and due include every saved advance.';
+  const head=document.getElementById('sm-summary-head'),body=document.getElementById('sm-summary-body'),foot=document.getElementById('sm-summary-foot');head.replaceChildren();body.replaceChildren();foot.replaceChildren();
+  if(current==='advance'){
+   row(head,['Worker','Department','Date','Week','Amount','Reason'],'th');
+   let count=0;for(const w of saved)for(const a of w.ledger||[])if(Number(a.week)<=Number(weeks.value)){row(body,[w.name,w.department||'—',a.date,'Week '+a.week,money(a.amount),a.reason||'—']);count++;}
+   if(!count)row(body,['No advance payments in these weeks.']);row(foot,['Total','','','',money(totals.advance),''],'th');
+  }else{
+   row(head,['Worker','Department',current==='employees'?'Record':titles[current]],'th');
+   const list=current==='employees'?overview:saved;for(const w of list)row(body,[w.name,w.department||'—',current==='employees'?(w.saved?'Saved':'Not Saved'):money(w[current])]);
+   if(!list.length)row(body,['No saved salary records yet.']);row(foot,['Total','',current==='employees'?list.length:money(totals[current])],'th');
+  }
+ }
+ document.querySelectorAll('[data-summary]').forEach(button=>button.addEventListener('click',()=>{current=current===button.dataset.summary?null:button.dataset.summary;render();}));
+ document.getElementById('sm-summary-close').addEventListener('click',()=>{current=null;render();});
+ weeks.addEventListener('change',()=>{document.getElementById('sm-print-week-count').value=weeks.value;document.querySelectorAll('[data-saved-print]').forEach(a=>{const url=new URL(a.href,location.href);url.searchParams.set('week_count',weeks.value);a.href=url.href;});render();});
+ async function refresh(afterSave=false){
+  if(busy||document.hidden)return;
+  if(!afterSave && document.querySelector('dialog[open]'))return;
+  busy=true;try{
+   const response=await fetch({{ \Illuminate\Support\Js::from(route('salary-management.index',['month'=>$monthKey])) }},{headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin',cache:'no-store'});
+   if(!response.ok)throw new Error();const data=await response.json();
+   if(data.revision!==revision && !afterSave){try{sessionStorage.setItem('salary-view-'+{{ \Illuminate\Support\Js::from($monthKey) }},JSON.stringify({search:document.getElementById('salary-search').value,department:document.getElementById('salary-department').value,status:document.getElementById('salary-status').value,weeks:weeks.value,mode:document.getElementById('salary-print-mode').value,current,selected:Array.from(document.querySelectorAll('.sm-print-check:checked')).map(b=>b.value)}));}catch(e){}location.reload();return;}
+   overview=data.overview;revision=data.revision;render();document.getElementById('sm-live-state').textContent='Updated '+new Date().toLocaleTimeString()+' · click a card for details';
+  }catch(e){document.getElementById('sm-live-state').textContent='Live refresh unavailable. Reload to check the latest saved records.';}
+  finally{busy=false;}
+ }
+ document.addEventListener('salary-record-saved',()=>refresh(true));setInterval(()=>refresh(),30000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
+ try{
+  const key='salary-view-'+{{ \Illuminate\Support\Js::from($monthKey) }}, saved=JSON.parse(sessionStorage.getItem(key)||'null');sessionStorage.removeItem(key);
+  if(saved){document.getElementById('salary-search').value=saved.search||'';document.getElementById('salary-department').value=saved.department||'';document.getElementById('salary-status').value=saved.status||'';weeks.value=saved.weeks||'5';document.getElementById('salary-print-mode').value=saved.mode||'slips';current=saved.current||null;
+   weeks.dispatchEvent(new Event('change'));document.getElementById('salary-search').dispatchEvent(new Event('input'));
+   document.querySelectorAll('.sm-print-check').forEach(b=>{b.checked=!b.disabled&&(saved.selected||[]).includes(b.value);});const first=document.querySelector('.sm-print-check');if(first)first.dispatchEvent(new Event('change'));
+  }
+ }catch(e){}render();
+})();
+</script>
+<style>
+.sm-stat{text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;width:100%;color:#17232b}.sm-stat:hover,.sm-stat[aria-expanded="true"]{border-color:#137466;box-shadow:0 3px 12px #13746614}.sm-stat:focus-visible{outline:3px solid #aad7cf;outline-offset:2px}
+#sm-summary-panel th{color:#64748b;font-size:12px}#sm-summary-panel td{font-size:13px;padding:9px 6px}#sm-summary-panel tfoot{font-weight:700;border-top:2px solid #dce3e8}
 </style>
 
 @endsection

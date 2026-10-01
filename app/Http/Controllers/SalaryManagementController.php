@@ -16,7 +16,16 @@ class SalaryManagementController extends Controller {
   $month=$this->month($request);
   $employees=Employee::orderBy('department')->orderBy('name')->get();
   $rows=SalaryManagementRow::with('advances')->whereDate('month',$month->toDateString())->get()->keyBy('employee_id');
-  return view('salary-management.index',compact('month','employees','rows'));
+  $overview=$this->overview($employees,$rows);
+  $revision=hash('sha256',json_encode($overview).$rows->sortKeys()->toJson());
+  if($request->expectsJson()) return response()->json(compact('overview','revision'));
+  return view('salary-management.index',compact('month','employees','rows','overview','revision'));
+ }
+ private function overview($employees,$rows): array {
+  return $employees->map(function($e) use($rows) {
+   $r=$rows->get($e->id);$f=$r?->figures();
+   return ['id'=>$e->id,'name'=>$e->name,'department'=>$e->department??'','saved'=>(bool)$r,'salary'=>(float)($r?->salary??0),'advance'=>(float)($f['advance']??0),'net'=>(float)($f['net']??0),'due'=>(float)($f['due']??0),'ledger'=>$r ? $r->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason??''])->values()->all():[]];
+  })->values()->all();
  }
  public function save(Request $request) {
   $month=$this->month($request);
@@ -25,10 +34,11 @@ class SalaryManagementController extends Controller {
   $rules['working_hours_per_day']=['required','numeric','multiple_of:1','min:1','max:24'];
   $rules['absent_days'][]='multiple_of:1';
   $rules['ot_hours'][]='multiple_of:1';
+  $rules['ot_hours'][]='max:'.($month->daysInMonth*24);
   $rules['absent_days'][]='max:'.$month->daysInMonth;
   $rules['salary_date']=['nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()];
   $rules['entry_advance_amount']=['nullable','numeric','min:0','max:9999999999.99'];
-  $rules['entry_advance_week']=['nullable','integer','min:1','max:3'];
+  $rules['entry_advance_week']=['nullable','integer','min:1','max:5'];
   $rules['entry_advance_date']=['nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()];
   $rules['entry_advance_reason']=['nullable','string','max:1000'];
   $data=$request->validate($rules);
@@ -44,12 +54,12 @@ class SalaryManagementController extends Controller {
    if (($data['entry_advance_amount']??0)>0) $row->advances()->create(['amount'=>$data['entry_advance_amount'],'advance_week'=>$data['entry_advance_week'],'advance_date'=>$data['entry_advance_date'],'reason'=>$data['entry_advance_reason']??null]);
    return $row;
   });
-  if ($request->expectsJson()) return response()->json(['message'=>'Salary saved.','row'=>$row->fresh()->toArray(),'advance'=>$row->load('advances')->figures()['advance'],'ledger'=>$row->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(3,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values()]);
+  if ($request->expectsJson()) return response()->json(['message'=>'Salary saved.','row'=>$row->fresh()->toArray(),'advance'=>$row->load('advances')->figures()['advance'],'ledger'=>$row->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values()]);
   return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success','Salary details saved.')->with('active_employee',$data['employee_id'])->with('active_tab','salary');
  }
  public function advance(Request $request) {
   $month=$this->month($request);
-  $data=$request->validate(['employee_id'=>['required',Rule::exists('employees','id')],'advance_date'=>['required','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()],'advance_week'=>['required','integer','min:1','max:3'],'amount'=>['required','numeric','min:0.01','max:9999999999.99'],'reason'=>['nullable','string','max:1000']]);
+  $data=$request->validate(['employee_id'=>['required',Rule::exists('employees','id')],'advance_date'=>['required','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()],'advance_week'=>['required','integer','min:1','max:5'],'amount'=>['required','numeric','min:0.01','max:9999999999.99'],'reason'=>['nullable','string','max:1000']]);
   DB::transaction(function() use($data,$month) {
    $employee=Employee::findOrFail($data['employee_id']);
    $row=SalaryManagementRow::firstOrCreate(['employee_id'=>$employee->id,'month'=>$month->toDateString()],['salary'=>$employee->basic_salary??0,'day_rate'=>round(($employee->basic_salary??0)/$month->daysInMonth,2)]);
@@ -70,6 +80,7 @@ class SalaryManagementController extends Controller {
    'employee_ids.*'=>['required','integer','distinct',Rule::exists('employees','id')],
    'scope'=>['nullable',Rule::in(['selected','all'])],
    'mode'=>['nullable',Rule::in(['dates','weeks','slips'])],
+   'week_count'=>['nullable','integer','min:1','max:5'],
   ]);
   $single=!empty($data['employee_id']);
   $selected=($data['scope']??null)==='selected' || !empty($data['employee_ids']);
@@ -79,6 +90,7 @@ class SalaryManagementController extends Controller {
   $query=Employee::query();
   if ($single) $query->where('id',$data['employee_id']);
   elseif ($selected) $query->whereIn('id',$data['employee_ids']);
+  else $query->whereIn('id',SalaryManagementRow::whereDate('month',$month->toDateString())->select('employee_id'));
   $employees=$query->orderBy('department')->orderBy('name')->get();
   if ($employees->isEmpty()) return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->withErrors(['print'=>'No employees available to print.']);
   $rows=SalaryManagementRow::with('advances')->whereDate('month',$month->toDateString())->whereIn('employee_id',$employees->pluck('id'))->get()->keyBy('employee_id');
@@ -87,8 +99,9 @@ class SalaryManagementController extends Controller {
    return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->withErrors(['print'=>'Save salary details before printing: '.$missing->pluck('name')->implode(', ')]);
   }
   $mode=$data['mode']??'weeks';
+  $weekCount=(int)($data['week_count']??5);
   $single=$single || $mode==='slips';
-  $dates=$rows->flatMap(fn($r)=>$r->advances->map(fn($a)=>$a->advance_date->format('Y-m-d')))->unique()->sort()->values();
-  return view('salary-management.print',compact('month','employees','rows','mode','dates','single'));
+  $dates=$rows->flatMap(fn($r)=>$r->advances->filter(fn($a)=>(int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1))<=$weekCount)->map(fn($a)=>$a->advance_date->format('Y-m-d')))->unique()->sort()->values();
+  return view('salary-management.print',compact('month','employees','rows','mode','dates','single','weekCount'));
  }
 }
