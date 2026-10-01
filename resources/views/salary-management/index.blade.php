@@ -654,7 +654,7 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  return ['id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(3,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
 })->values();
 @endphp
-<dialog id="sm-batch-dialog" style="width:min(960px,95vw);max-height:92vh;border:1px solid #ddd;border-radius:16px;padding:0;overflow:hidden">
+<dialog id="sm-batch-dialog" class="salary-manager" style="width:min(960px,95vw);max-height:92vh;border:1px solid #ddd;border-radius:16px;padding:0;overflow:hidden">
  <div style="padding:24px;max-height:calc(90vh - 76px);overflow:auto"><div class="d-flex justify-content-between"><div><h4>Add Salary — {{ $month->format('F Y') }}</h4><p class="sm-hint">Save salary to open the next worker in this department.</p></div><button class="sm-btn" type="button" id="sm-batch-close">Back to List</button></div>
  <div id="sm-batch-message" role="status" class="alert" hidden></div>
  <form id="sm-batch-form" action="{{ route('salary-management.save') }}" method="post">
@@ -776,6 +776,9 @@ $entryWorkers=$employees->map(function($e) use($rows) {
 
 <style>
 #sm-dept-complete[hidden]{display:none!important}#sm-dept-complete:not([hidden]){display:flex}
+#sm-entry-save{display:inline-flex!important;background:#17232b!important;color:#fff!important;border:1px solid #17232b!important;min-height:44px;min-width:190px;opacity:1}
+#sm-entry-save:hover{background:#2c414e!important}
+#sm-entry-save:disabled{background:#64748b!important;border-color:#64748b!important;color:white!important;opacity:.65;cursor:not-allowed}
 #sm-batch-dialog::backdrop{background:#17232b80;backdrop-filter:blur(2px)}
 #sm-batch-dialog h4{font-size:22px}#sm-batch-dialog h5{font-size:16px}#sm-batch-dialog .sm-label{font-size:13px}#sm-batch-dialog .sm-hint{font-size:12px}
 #sm-entry-preview{background:#f4f8f7;border:1px solid #dfe9e5;color:#17232b;margin:12px 0 0;border-radius:12px}
