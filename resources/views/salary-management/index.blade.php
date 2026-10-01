@@ -89,7 +89,7 @@
 
     <header class="sm-heading">
 
-        <div><div class="sm-eyebrow">Salary Workers / Monthly Records</div><h3>Salary Management</h3><p>3 weekly advances · Last-week salary payment · Employee slips</p></div>
+        <div><div class="sm-eyebrow">Salary Workers / Monthly Records</div><h3>Salary Management</h3><p>Add salaries, record advances and print slips.</p></div>
 
         <div class="sm-actions"><button type="button" class="sm-btn sm-btn-primary" id="sm-add-salary">+ Add Salary</button><a class="sm-btn" href="{{ route('payrolls.index') }}"><i class="bi bi-wallet2" aria-hidden="true"></i> Employees Payroll</a></div>
 
@@ -119,17 +119,17 @@
 
     <section class="sm-card" aria-label="All employee salary records">
 
-        <p class="sm-hint" style="padding:16px 20px 0;margin:0">Viewing {{ $month->format('F Y') }}. Choose a month to see its saved salary and advance records. Each month is saved separately.</p>
+        <p class="sm-hint" style="padding:16px 20px 0;margin:0">Records for {{ $month->format('F Y') }}</p>
         <div class="sm-toolbar">
 
             <form method="get" class="sm-month-form" action="{{ route('salary-management.index') }}">
 
                 <div><label class="sm-label" for="salary-month">Salary Month</label><input class="sm-control" id="salary-month" type="month" name="month" value="{{ $monthKey }}" required></div>
 
-                <button class="sm-btn sm-btn-primary" type="submit">View Month Records</button>
-                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>$month->copy()->subMonthNoOverflow()->format('Y-m')]) }}">Previous Month</a>
-                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>$month->copy()->addMonthNoOverflow()->format('Y-m')]) }}">Next Month</a>
-                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>now()->format('Y-m')]) }}">Current Month</a>
+                <button class="sm-btn sm-btn-primary" type="submit">Load</button>
+                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>$month->copy()->subMonthNoOverflow()->format('Y-m')]) }}">← Previous</a>
+                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>$month->copy()->addMonthNoOverflow()->format('Y-m')]) }}">Next →</a>
+                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>now()->format('Y-m')]) }}">This Month</a>
 
             </form>
 
@@ -171,7 +171,7 @@
                 <select class="sm-control" style="width:auto" id="salary-print-mode" name="mode"><option value="slips">Individual Salary Slips</option><option value="weeks">3-Week Salary Sheet</option><option value="dates">Date-wise Sheet</option></select>
                 <button type="submit" id="salary-print-selected" class="sm-btn sm-btn-primary" disabled>Print Selected (0)</button>
             </div>
-            <p class="sm-hint mb-0 mt-2">Select All selects saved employees shown by your filters. Unsaved records must be saved first. The buttons above print all employees.</p>
+            <p class="sm-hint mb-0 mt-2">Select workers, choose the print format, then press Print Selected.</p>
         </form>
         <div class="sm-list-title"><strong>Employee Directory</strong><small id="salary-count" aria-live="polite">{{ $employees->count() }} employees</small></div>
 
@@ -261,7 +261,7 @@
 
                         @if($row)<button type="button" class="sm-btn sm-btn-small" data-open-employee="{{ $employee->id }}" data-open-tab="salary" aria-controls="salary-editor-{{ $employee->id }}">Edit Details</button>
 
-                        <button type="button" class="sm-btn sm-btn-small" data-open-employee="{{ $employee->id }}" data-open-tab="advances" aria-controls="salary-editor-{{ $employee->id }}">Advance</button>@else<span class="sm-hint">Use Add Salary first</span>@endif
+                        <button type="button" class="sm-btn sm-btn-small" data-open-employee="{{ $employee->id }}" data-open-tab="advances" aria-controls="salary-editor-{{ $employee->id }}">Advance</button>@else<span class="sm-hint">—</span>@endif
 
                         @if($row)<a class="sm-btn sm-btn-small" target="_blank" rel="noopener" aria-label="Print salary slip for {{ $employee->name }}" href="{{ route('salary-management.print', ['month'=>$monthKey, 'employee_id'=>$employee->id]) }}"><i class="bi bi-printer" aria-hidden="true"></i> Slip</a>@endif
 
@@ -654,8 +654,8 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  return ['id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(3,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
 })->values();
 @endphp
-<dialog id="sm-batch-dialog" style="width:min(1050px,95vw);max-height:92vh;border:1px solid #ddd;border-radius:14px;padding:0">
- <div style="padding:24px"><div class="d-flex justify-content-between"><div><h4>Add Salary — {{ $month->format('F Y') }}</h4><p class="sm-hint">Save one worker, then select the next. Department stays selected.</p></div><button class="sm-btn" type="button" id="sm-batch-close">Back to List</button></div>
+<dialog id="sm-batch-dialog" style="width:min(960px,95vw);max-height:92vh;border:1px solid #ddd;border-radius:16px;padding:0;overflow:hidden">
+ <div style="padding:24px;max-height:calc(90vh - 76px);overflow:auto"><div class="d-flex justify-content-between"><div><h4>Add Salary — {{ $month->format('F Y') }}</h4><p class="sm-hint">Save salary to open the next worker in this department.</p></div><button class="sm-btn" type="button" id="sm-batch-close">Back to List</button></div>
  <div id="sm-batch-message" role="status" class="alert" hidden></div>
  <form id="sm-batch-form" action="{{ route('salary-management.save') }}" method="post">
  @csrf <input type="hidden" name="month" value="{{ $monthKey }}">
@@ -677,15 +677,18 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>Existing advances remain saved. These fields add one new payment.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week"><option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option></select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div></section>
  <section class="sm-section mt-3"><h5 id="sm-ledger-title">Saved Advance Record</h5><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Week</th><th>Amount</th><th>Reason</th></tr></thead><tbody id="sm-entry-ledger"></tbody></table></div><div class="sm-hint" id="sm-entry-week-totals"></div><p class="sm-hint">New advances appear here after saving. Each payment is deducted once.</p></section>
  <div class="alert alert-info" id="sm-entry-preview" aria-live="polite"></div>
- <div style="position:sticky;bottom:0;background:white;padding:12px 0;border-top:1px solid #eee"><button class="sm-btn sm-btn-primary" type="submit" id="sm-entry-save">Save & Select Next Worker</button></div>
  </fieldset></form></div>
+ <footer style="padding:14px 24px;background:white;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:12px"><span class="sm-hint" id="sm-entry-progress">Choose a department and worker.</span><button class="sm-btn sm-btn-primary" type="submit" form="sm-batch-form" id="sm-entry-save" disabled>Save & Next Worker</button></footer>
+ <div id="sm-dept-complete" hidden role="dialog" aria-modal="true" aria-labelledby="sm-complete-heading" style="position:absolute;inset:0;background:#f8fafcf5;align-items:center;justify-content:center;padding:24px;z-index:2">
+ <div style="max-width:440px;width:100%;padding:32px;background:white;border:1px solid #e5e7eb;border-radius:18px;text-align:center;box-shadow:0 12px 40px #0001"><div style="font-size:34px;color:#137466">✓</div><h4 id="sm-complete-heading" tabindex="-1">Department Complete</h4><p id="sm-complete-text"></p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button type="button" class="sm-btn sm-btn-primary" id="sm-next-department">Next Department</button><button type="button" class="sm-btn" id="sm-finish-entry">Back to List</button></div></div>
+ </div>
 </dialog>
 <script>
 (function(){
  const workers={{ \Illuminate\Support\Js::from($entryWorkers) }};
  const dialog=document.getElementById('sm-batch-dialog'), form=document.getElementById('sm-batch-form');
  const dept=document.getElementById('sm-entry-dept'), search=document.getElementById('sm-entry-search'), select=document.getElementById('sm-entry-worker'), fields=document.getElementById('sm-entry-fields'), message=document.getElementById('sm-batch-message');
- const dateDefault=form.elements.salary_date.value, days={{ $month->daysInMonth }};
+ let dateDefault=form.elements.salary_date.value; const days={{ $month->daysInMonth }};
  let changed=false, saving=false;
  const num=n=>Number(form.elements.namedItem(n).value)||0, round=n=>Math.round((n+Number.EPSILON)*100)/100;
  const money=n=>'Rs '+n.toLocaleString('en-PK',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -701,12 +704,31 @@ $entryWorkers=$employees->map(function($e) use($rows) {
   if(!ledger.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.textContent='No saved advances for this worker.';tr.appendChild(td);body.appendChild(tr);}
   document.getElementById('sm-entry-week-totals').textContent=totals.map((n,i)=>'Week '+(i+1)+': '+money(n)).join(' · ');
  }
+ function progress(){
+  const list=workers.filter(w=>!dept.value||w.department===dept.value), saved=list.filter(w=>w.saved).length;
+  document.getElementById('sm-entry-progress').textContent=(dept.value||'All Departments')+' · '+saved+' of '+list.length+' saved';
+ }
+ function pickNext(){
+  search.value='';select.value='';options();
+  const next=workers.find(w=>(!dept.value||w.department===dept.value)&&!w.saved);
+  if(next){select.value=String(next.id);load();progress();dialog.querySelector('[name="salary"]').focus();return;}
+  fields.disabled=true;document.getElementById('sm-entry-save').disabled=true;progress();
+  const pending=workers.find(w=>!w.saved);
+  document.getElementById('sm-complete-text').textContent=(dept.value||'All Employees')+' salary records are complete for this month.'+(pending?' Continue with the next department.':' All departments are complete.');
+  document.getElementById('sm-next-department').hidden=!pending;
+  const panel=document.getElementById('sm-dept-complete');panel.hidden=false;document.getElementById('sm-complete-heading').focus();
+ }
+ document.getElementById('sm-next-department').addEventListener('click',()=>{
+  document.getElementById('sm-dept-complete').hidden=true;
+  const next=workers.find(w=>!w.saved);if(next){dept.value=next.department;pickNext();}
+ });
+ document.getElementById('sm-finish-entry').addEventListener('click',()=>dialog.close());
  function options(){
   const selected=select.value, q=search.value.trim().toLocaleLowerCase();
   select.replaceChildren(new Option('Select Worker',''));
   workers.filter(w=>(!dept.value || w.department===dept.value) && (w.name+' '+w.code).toLocaleLowerCase().includes(q)).forEach(w=>select.add(new Option(w.name+' · '+(w.department||'No Department')+' · '+(w.saved?'Saved':'Not Saved'),String(w.id))));
   select.value=selected;
-  if(!select.value){fields.disabled=true;renderLedger(null);}
+  if(!select.value){fields.disabled=true;document.getElementById('sm-entry-save').disabled=true;renderLedger(null);}progress();
  }
  function preview(){
   const w=workers.find(w=>String(w.id)===select.value);if(!w)return;
@@ -717,22 +739,23 @@ $entryWorkers=$employees->map(function($e) use($rows) {
   document.getElementById('sm-entry-rates').textContent='Absence rate: '+money(day)+'/day · Overtime rate: '+money(num('ot_rate'))+'/hour';
   const preview=document.getElementById('sm-entry-preview');preview.replaceChildren();
   for(const [label,amount] of [['Monthly Salary (+)',num('salary')],['Overtime (+)',round(num('ot_hours')*num('ot_rate'))],['Absence Deduction (−)',round(num('absent_days')*day)],['Advances (−)',advances],['Loan Installment (−)',num('loan_deduction')],['Other Deduction (−)',num('other_deduction')],['Net Salary',net],['Previous Due (+)',num('overdue')],['Final Salary Paid (−)',num('paid_amount')],['Remaining Due',round(net+num('overdue')-num('paid_amount'))]]){
+   if(amount===0 && !['Monthly Salary (+)','Net Salary','Remaining Due'].includes(label))continue;
    const line=document.createElement('div');line.style.cssText='display:flex;justify-content:space-between;gap:12px;padding:4px 0';
    const caption=document.createElement('span'),value=document.createElement('strong');caption.textContent=label;value.textContent=money(amount);line.appendChild(caption);line.appendChild(value);preview.appendChild(line);
   }
  }
  function load(){
-  const w=workers.find(w=>String(w.id)===select.value);fields.disabled=!w;if(!w)return;
+  const w=workers.find(w=>String(w.id)===select.value);fields.disabled=!w;document.getElementById('sm-entry-save').disabled=!w;if(!w)return;
   for(const [key,val] of Object.entries(w.data)){if(form.elements.namedItem(key))form.elements.namedItem(key).value=val??(key==='salary'?w.basic_salary:key==='working_hours_per_day'?8:key==='salary_date'?dateDefault:key==='notes'?'':0);}
   for(const key of ['absent_days','ot_hours','working_hours_per_day'])form.elements.namedItem(key).value=Number(form.elements.namedItem(key).value);
   renderLedger(w);document.getElementById('sm-extra-details').open=['loan_balance','loan_deduction','other_deduction','overdue','paid_amount'].some(k=>num(k)>0);
   form.elements.entry_advance_amount.value=0;form.elements.entry_advance_date.value=form.elements.salary_date.value;form.elements.entry_advance_reason.value='';preview();
  }
- document.getElementById('sm-add-salary').addEventListener('click',()=>{options();dialog.showModal();});
+ document.getElementById('sm-add-salary').addEventListener('click',()=>{document.getElementById('sm-dept-complete').hidden=true;options();dialog.showModal();});
  document.getElementById('sm-batch-close').addEventListener('click',()=>{if(!saving)dialog.close();});
  dialog.addEventListener('cancel',e=>{if(saving)e.preventDefault();});
  dialog.addEventListener('close',()=>{if(changed)window.location.reload();});
- dept.addEventListener('change',()=>{select.value='';search.value='';options();});search.addEventListener('input',options);select.addEventListener('change',load);form.addEventListener('input',preview);
+ dept.addEventListener('change',()=>{select.value='';search.value='';pickNext();});search.addEventListener('input',options);select.addEventListener('change',load);form.addEventListener('input',preview);
  form.addEventListener('submit',async e=>{
   e.preventDefault();if(saving || !form.reportValidity())return;
   const w=workers.find(w=>String(w.id)===select.value);if(!w)return;
@@ -742,12 +765,23 @@ $entryWorkers=$employees->map(function($e) use($rows) {
    const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
    const data=await response.json();if(!response.ok)throw new Error(data.errors?Object.values(data.errors).flat().join(' '):(data.message||'Unable to save.'));
    w.saved=true;w.data=data.row;w.advance=data.advance;w.ledger=data.ledger||[];changed=true;
-   const name=w.name, keptDepartment=dept.value, keptDate=form.elements.salary_date.value;fields.disabled=false;form.reset();dept.value=keptDepartment;search.value='';form.elements.salary_date.value=keptDate;fields.disabled=true;select.value='';options();renderLedger(w);document.getElementById('sm-extra-details').open=false;document.getElementById('sm-entry-preview').replaceChildren();
-   message.hidden=false;message.className='alert alert-success';message.textContent=name+' saved. Select the next worker.';
+   const name=w.name, keptDepartment=dept.value, keptDate=form.elements.salary_date.value;dateDefault=keptDate;fields.disabled=false;form.reset();dept.value=keptDepartment;search.value='';form.elements.salary_date.value=keptDate;fields.disabled=true;select.value='';options();renderLedger(w);document.getElementById('sm-extra-details').open=false;document.getElementById('sm-entry-preview').replaceChildren();
+   message.hidden=false;message.className='alert alert-success';message.textContent=name+' salary saved.';pickNext();
   }catch(error){message.hidden=false;message.className='alert alert-danger';message.textContent=error.message;}
-  finally{saving=false;button.disabled=false;button.textContent='Save & Select Next Worker';}
+  finally{saving=false;button.disabled=!select.value;button.textContent='Save & Next Worker';}
  });
 })();
 </script>
+
+
+<style>
+#sm-dept-complete[hidden]{display:none!important}#sm-dept-complete:not([hidden]){display:flex}
+#sm-batch-dialog::backdrop{background:#17232b80;backdrop-filter:blur(2px)}
+#sm-batch-dialog h4{font-size:22px}#sm-batch-dialog h5{font-size:16px}#sm-batch-dialog .sm-label{font-size:13px}#sm-batch-dialog .sm-hint{font-size:12px}
+#sm-entry-preview{background:#f4f8f7;border:1px solid #dfe9e5;color:#17232b;margin:12px 0 0;border-radius:12px}
+#sm-entry-ledger td,#sm-entry-ledger th{font-size:12px}
+.salary-manager .sm-stat{padding:16px}.salary-manager .sm-stat small{font-size:12px}.salary-manager .sm-toolbar{gap:12px}.salary-manager .sm-table td{padding-top:12px;padding-bottom:12px}
+@media(max-width:640px){#sm-batch-dialog footer{flex-direction:column;align-items:stretch!important}#sm-entry-progress{font-size:11px}#sm-entry-save{width:100%}}
+</style>
 
 @endsection
