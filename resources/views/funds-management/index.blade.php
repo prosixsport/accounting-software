@@ -2,14 +2,37 @@
 @section('title','Funds Management')
 @section('content')
 @php $money=fn($value)=>\App\Services\FundsLedger::money($value); @endphp
-<div class="fm">
-<div class="fm-heading"><div><small>MONTHLY FUNDS & PAYMENTS</small><h2>Funds Management</h2><p>Every receipt and payment in one monthly ledger.</p></div><a class="btn btn-dark" onclick="document.getElementById('receive-cash').open=true" href="#receive-cash">+ Receive Boss Funds</a></div>
-<div class="fm-tools"><form method="get"><input type="month" name="month" value="{{ $month->format('Y-m') }}" required><button class="btn btn-dark">Load Month</button></form><a href="{{ route('funds-management.index',['month'=>$month->copy()->subMonthNoOverflow()->format('Y-m')]) }}">← Previous</a><a href="{{ route('funds-management.index',['month'=>$month->copy()->addMonthNoOverflow()->format('Y-m')]) }}">Next →</a><button class="btn btn-outline-dark" onclick="window.print()">Print Report</button></div>
-
-@if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+<div class="funds-screen">
+<header class="funds-head"><div><h3>Funds Management</h3><small>All records through {{ now()->format('d M Y') }}</small></div><div class="funds-actions"><button type="button" class="btn btn-outline-dark" data-dialog="fund-access" title="Who has access?" aria-label="View funds access"><i class="bi bi-eye"></i></button><button type="button" class="btn btn-dark" data-dialog="fund-receive">+ Receive Funds from Boss</button></div></header>
+@if(session('success'))<div class="alert alert-success py-2">{{ session('success') }}</div>@endif
+<div class="funds-stats">@foreach(['received'=>'Total Received','spent'=>'Total Used','closing'=>'Remaining Balance'] as $key=>$label)<div><small>{{ $label }}</small><strong>Rs {{ $money($report[$key]) }}</strong></div>@endforeach</div>
+<div class="funds-tabs" role="tablist" aria-label="Funds details">
+@foreach(['overview'=>'Overview','ledger'=>'Transactions','activity'=>'User Activity','review'=>'Review ('.count($warnings).')'] as $key=>$label)<button type="button" role="tab" id="tab-{{ $key }}" aria-controls="panel-{{ $key }}" aria-selected="{{ $key==='overview'?'true':'false' }}" data-panel="{{ $key }}">{{ $label }}</button>@endforeach
+</div>
+<div class="funds-body">
+<section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview"><div class="funds-grid"><article><h5>Received from Bosses</h5><table class="table">@foreach(['Boss Azeem','Boss Atif','Boss Kashif'] as $boss)<tr><td>{{ $boss }}</td><th>Rs {{ $money($report['bosses'][$boss]??0) }}</th></tr>@endforeach
+@foreach($report['bosses'] as $boss=>$amount)
+@if(!in_array($boss,['Boss Azeem','Boss Atif','Boss Kashif']))<tr><td>{{ $boss }} <small>(Historical)</small></td><th>Rs {{ $money($amount) }}</th></tr>@endif
+@endforeach
+</table></article><article><h5>Where Cash Was Used</h5><table class="table">@forelse($report['categories'] as $type=>$amount)<tr><td>{{ $type }}</td><th>Rs {{ $money($amount) }}</th></tr>@empty<tr><td>No payments recorded.</td></tr>@endforelse</table></article></div><p class="funds-note">Salary, contractor payments and expenses appear automatically after saving. Cash and bank are included in one combined balance.</p></section>
+<section id="panel-ledger" role="tabpanel" aria-labelledby="tab-ledger" hidden><div class="table-responsive"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Person / Purpose</th><th>Reference / User</th><th>Payment Method</th><th>Received</th><th>Paid</th><th>Balance</th></tr></thead><tbody>
+@forelse($report['ledger'] as $row)
+<tr><td>{{ $row['date'] }}</td><td>{{ $row['type'] }}</td><td>{{ $row['party'] }}<small class="d-block text-muted">{{ $row['description'] }}</small></td><td><small>{{ $row['reference'] }}</small><small class="d-block text-muted">{{ $row['actor'] }}</small></td><td>{{ $row['method'] }}</td><td>{{ $money($row['in']) }}</td><td>{{ $money($row['out']) }}</td><th>{{ $money($row['balance']) }}</th></tr>
+@empty
+<tr><td colspan="8">No payments or receipts yet.</td></tr>
+@endforelse
+</tbody><tfoot><tr><th colspan="5">Totals</th><th>{{ $money($report['received']) }}</th><th>{{ $money($report['spent']) }}</th><th>{{ $money($report['closing']) }}</th></tr></tfoot></table></div></section>
+<section id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" hidden>@forelse($activity as $log)
+<details class="fm-log"><summary>{{ $log->created_at }} · {{ $log->actor }} · {{ ucfirst($log->action) }} · {{ $log->source }} #{{ $log->source_id }}</summary><div class="fm-grid"><div><strong>Before</strong><pre>{{ json_encode(json_decode($log->before ?? 'null'),JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) }}</pre></div><div><strong>After</strong><pre>{{ json_encode(json_decode($log->after ?? 'null'),JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) }}</pre></div></div></details>
+@empty<p>No recorded activity in this month.</p>
+@endforelse
+{{ $activity->links() }}
+</section>
+<section id="panel-review" role="tabpanel" aria-labelledby="tab-review" hidden><h5>Records to Review</h5>@forelse($warnings as $warning)<p class="alert alert-warning">{{ $warning }}</p>@empty<p>No possible duplicates detected.</p>@endforelse
+@if(count($report['future']))<h6>Future entries · excluded from balance</h6>@foreach($report['future'] as $row)<p>{{ $row['date'] }} · {{ $row['party'] }} · Rs {{ $money($row['in']+$row['out']) }}</p>@endforeach@endif</section>
+</div></div>
+<dialog id="fund-receive" class="fund-dialog" aria-labelledby="receive-title"><div class="dialog-head"><h4 id="receive-title">Receive Funds from Boss</h4><button type="button" data-close aria-label="Close">×</button></div>
 @if($errors->any())<div class="alert alert-danger">@foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>@endif
-<details id="receive-cash" class="fm-receive" @if($errors->any()) open @endif>
-<summary>+ Receive Cash from Boss</summary>
 <form method="post" action="{{ route('funds-management.store') }}" class="row g-3 mt-2">
 @csrf
 <input type="hidden" name="submission_key" value="{{ old('submission_key',(string)\Illuminate\Support\Str::uuid()) }}">
@@ -19,64 +42,26 @@
 <div class="col-md-3"><label class="form-label">Received In</label><select class="form-select" name="method"><option value="cash" @selected(old('method')==='cash')>Cash</option><option value="bank" @selected(old('method')==='bank')>Bank</option></select></div>
 <div class="col-md-9"><label class="form-label">Purpose / Notes</label><input class="form-control" name="notes" maxlength="2000" value="{{ old('notes') }}"></div>
 <div class="col-md-3 align-self-end"><button class="btn btn-dark w-100">Save Receipt</button></div>
-</form></details>
-<h5>{{ $month->format('F Y') }} <small class="text-muted">· Payments through {{ $report['end'] }}</small></h5>
-<div class="fm-cards">
-@foreach(['opening'=>'Opening Balance','received'=>'Received This Month','available'=>'Total Available','spent'=>'Paid This Month','closing'=>'Closing / Remaining'] as $key=>$label)
-<div><small>{{ $label }}</small><strong>Rs {{ $money($report[$key]) }}</strong></div>
-@endforeach
-</div>
-<p class="fm-note">Opening + receipts − payments = closing. Closing carries into the next month. Future-date entries are excluded until their payment date.</p>
-@if(count($warnings))
-<div class="alert alert-warning"><strong>Reconciliation Needed</strong>
-@foreach($warnings as $warning)
-<p class="mb-1">{{ $warning }}</p>
-@endforeach
-</div>
-@endif
-<div class="fm-grid"><section><h5>Boss-wise Receipts</h5><table class="table">
-@forelse($report['bosses'] as $name=>$amount)
-<tr><td>{{ $name }}</td><th>Rs {{ $money($amount) }}</th></tr>
-@empty
-<tr><td>No boss receipts this month.</td></tr>
-@endforelse
-</table></section><section><h5>Where Funds Were Used</h5><table class="table">
-@foreach($report['categories'] as $name=>$amount)
-@if($amount)
-<tr><td>{{ $name }}</td><th>Rs {{ $money($amount) }}</th></tr>
-@endif
-@endforeach
-</table></section></div>
-<section><h5>Monthly Ledger</h5><p class="fm-note">Source references identify the original record. Make corrections in the original salary, contractor, receipt or expense module.</p><div class="table-responsive"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Person / Purpose</th><th>Reference / User</th><th>Payment Method</th><th>Received</th><th>Paid</th><th>Balance</th></tr></thead><tbody>
-@forelse($report['ledger'] as $row)
-<tr><td>{{ $row['date'] }}</td><td>{{ $row['type'] }}</td><td>{{ $row['party'] }}<small class="d-block text-muted">{{ $row['description'] }}</small></td><td><small>{{ $row['reference'] }}</small><small class="d-block text-muted">{{ $row['actor'] }}</small></td><td>{{ $row['method'] }}</td><td>{{ $money($row['in']) }}</td><td>{{ $money($row['out']) }}</td><th>{{ $money($row['balance']) }}</th></tr>
-@empty
-<tr><td colspan="8">No payments or receipts this month.</td></tr>
-@endforelse
-</tbody><tfoot><tr><th colspan="5">Monthly totals</th><th>{{ $money($report['received']) }}</th><th>{{ $money($report['spent']) }}</th><th>{{ $money($report['closing']) }}</th></tr></tfoot></table></div></section>
-@if(count($report['future']))
-<section><h5>Future-date Entries · Excluded from Balance</h5>
-@foreach($report['future'] as $row)
-<p>{{ $row['date'] }} · {{ $row['party'] }} · {{ $row['type'] }} · Rs {{ $money($row['in']+$row['out']) }}</p>
-@endforeach
-</section>
-@endif
-<section><h5>Who Has Funds Access?</h5><p class="fm-note">Permissions follow Access Management. Users with no assigned permissions currently have full access under the application's existing rule.</p><div class="table-responsive"><table class="table"><thead><tr><th>User</th><th>Email</th><th>Role</th><th>Access Reason</th></tr></thead><tbody>@foreach($accessUsers as $u)<tr><td>{{ $u->name }}</td><td>{{ $u->email }}</td><td>{{ $u->role }}</td><td>{{ $u->role==='super_admin' ? 'Super admin' : ($u->permissions->isEmpty() ? 'Full access (no restrictions assigned)' : 'Funds permission assigned') }}</td></tr>@endforeach</tbody></table></div></section>
-<section><h5>User Activity · {{ $month->format('F Y') }}</h5><p class="fm-note">New records and Eloquent changes are recorded from installation onward. Expand a row for the before / after values.</p>
-@forelse($activity as $log)
-<details class="fm-log"><summary>{{ $log->created_at }} · {{ $log->actor }} · {{ ucfirst($log->action) }} · {{ $log->source }} #{{ $log->source_id }}</summary><div class="fm-grid"><div><strong>Before</strong><pre>{{ json_encode(json_decode($log->before ?? 'null'),JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) }}</pre></div><div><strong>After</strong><pre>{{ json_encode(json_decode($log->after ?? 'null'),JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) }}</pre></div></div></details>
-@empty<p>No recorded activity in this month.</p>
-@endforelse
-{{ $activity->appends(['month'=>$month->format('Y-m')])->links() }}
-</section>
-<section><h5>12-Month History</h5><div class="table-responsive"><table class="table"><thead><tr><th>Month</th><th>Opening</th><th>Received</th><th>Paid</th><th>Closing</th></tr></thead><tbody>
-@foreach($history as $row)
-<tr><td><a href="{{ route('funds-management.index',['month'=>$row['month']]) }}">{{ $row['label'] }}</a></td><td>{{ $money($row['opening']) }}</td><td>{{ $money($row['received']) }}</td><td>{{ $money($row['spent']) }}</td><th>{{ $money($row['closing']) }}</th></tr>
-@endforeach
-</tbody></table></div></section>
-<p class="fm-note">This is a combined funds balance. Salary and contractor payments currently have no cash/bank account assignment. Manual duplicate entries across modules must be reconciled; matching descriptions do not establish that two records represent the same payment.</p>
-</div>
+</form>
+</dialog>
+<dialog id="fund-access" class="fund-dialog" aria-label="Funds access"><div class="dialog-head"><h4>Funds Access</h4><button type="button" data-close aria-label="Close">×</button></div><h5>Who Has Funds Access?</h5><p class="fm-note">Permissions follow Access Management. Users with no assigned permissions currently have full access under the application's existing rule.</p><div class="table-responsive"><table class="table"><thead><tr><th>User</th><th>Email</th><th>Role</th><th>Access Reason</th></tr></thead><tbody>@foreach($accessUsers as $u)<tr><td>{{ $u->name }}</td><td>{{ $u->email }}</td><td>{{ $u->role }}</td><td>{{ $u->role==='super_admin' ? 'Super admin' : ($u->permissions->isEmpty() ? 'Full access (no restrictions assigned)' : 'Funds permission assigned') }}</td></tr>@endforeach</tbody></table></div></dialog>
 <style>
-.fm-receive{background:#fff;border:1px solid #dce8e4;border-radius:16px;padding:20px;margin-bottom:22px}.fm-receive summary{cursor:pointer;font-weight:700;color:#13766e}.fm-log{border-bottom:1px solid #e5ecef;padding:12px 0}.fm-log summary{cursor:pointer}.fm-log pre{font-size:11px;max-height:260px;overflow:auto;background:#f4f7f9;padding:12px;margin-top:10px}.fm{color:#193845}.fm-heading,.fm-tools{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}.fm-heading small{color:#13766e;font-weight:700;letter-spacing:2px}.fm-heading h2{font-weight:750;margin:8px 0}.fm-heading p,.fm-note{color:#667d89;font-size:13px}.fm-tools{justify-content:flex-start;background:white;border:1px solid #e1e9ef;padding:16px;border-radius:14px}.fm-tools form{display:flex;gap:10px}.fm-tools input{border:1px solid #dbe4eb;border-radius:8px;padding:8px}.fm-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:18px 0}.fm-cards>div,.fm section{background:white;border:1px solid #e0e9ef;border-radius:16px;padding:20px}.fm-cards small{display:block;color:#68828e}.fm-cards strong{display:block;font-size:21px;margin-top:12px}.fm-cards>div:last-child{background:#e5f4ef}.fm-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.fm section{margin-bottom:18px}.fm h5{font-weight:700}.fm table{font-size:13px}.fm td,.fm th{padding:12px 8px}.fm thead{background:#f2f7fa}@media(max-width:1000px){.fm-cards{grid-template-columns:repeat(2,1fr)}.fm-grid{grid-template-columns:1fr}}@media print{nav,aside,.fm-receive,.sidebar,.mobile-header,.fm-tools,.fm-heading>a{display:none!important}.main-content{margin:0!important;padding:0!important}.fm section{break-inside:auto}tr{break-inside:avoid}.fm-cards strong{font-size:14px}@page{size:A4 landscape;margin:10mm}}
+.funds-screen{height:calc(100dvh - 110px);min-height:360px;display:flex;flex-direction:column;gap:16px;color:#183e43;overflow:hidden}.funds-head,.funds-actions,.dialog-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.funds-head h3{font-weight:750;margin:0 0 4px}.funds-head small,.funds-note{color:#71868b}.funds-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.funds-stats>div{background:white;padding:18px 22px;border:1px solid #e2ece9;border-radius:16px}.funds-stats>div:last-child{background:#e1f3eb}.funds-stats small,.funds-stats strong{display:block}.funds-stats strong{font-size:clamp(17px,2vw,26px);margin-top:8px}.funds-tabs{display:flex;gap:8px;flex-wrap:wrap}.funds-tabs button{border:0;border-radius:9px;padding:9px 16px;background:#edf3f2;color:#486368}.funds-tabs button[aria-selected=true]{background:#176b5e;color:white}.funds-body{background:white;border:1px solid #e0e9e6;border-radius:16px;padding:20px;flex:1;min-height:0;overflow:auto}.funds-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}.funds-grid h5{font-size:16px;font-weight:700}.funds-screen table{font-size:13px}.funds-screen th,.funds-screen td{padding:10px}.funds-screen thead{position:sticky;top:0;background:#f1f7f4}.funds-note{font-size:12px;margin-bottom:0}.fund-dialog{width:min(760px,94vw);max-height:88dvh;overflow:auto;border:0;border-radius:20px;padding:26px;box-shadow:0 22px 90px #102e3c40}.fund-dialog::backdrop{background:#122b3f80}.dialog-head{margin-bottom:18px}.dialog-head h4{font-size:20px;font-weight:700;margin:0}.dialog-head button{border:0;background:#edf3f2;border-radius:50%;width:34px;height:34px;font-size:24px}.fm-log{padding:10px;border-bottom:1px solid #eee}.fm-log summary{cursor:pointer}.fm-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.fm-log pre{font-size:11px;max-height:200px;overflow:auto;background:#f4f7f8;padding:10px}[hidden]{display:none!important}@media(max-width:700px){.funds-screen{height:calc(100dvh - 100px);gap:10px}.funds-head{align-items:flex-start}.funds-actions{gap:5px}.funds-actions .btn{font-size:12px;padding:8px}.funds-head h3{font-size:19px}.funds-stats{gap:6px}.funds-stats>div{padding:10px}.funds-stats small{font-size:11px}.funds-body{padding:12px}.funds-grid,.fm-grid{grid-template-columns:1fr}.funds-tabs button{font-size:12px;padding:7px 10px}}
 </style>
+<script>
+(()=>{
+const screen=document.querySelector('.funds-screen');
+screen.querySelectorAll('[data-panel]').forEach(button=>button.addEventListener('click',()=>{
+ screen.querySelectorAll('[data-panel]').forEach(b=>b.setAttribute('aria-selected',String(b===button)));
+ screen.querySelectorAll('[role=tabpanel]').forEach(panel=>panel.hidden=panel.id!=='panel-'+button.dataset.panel);
+}));
+document.querySelectorAll('[data-dialog]').forEach(button=>button.addEventListener('click',()=>document.getElementById(button.dataset.dialog).showModal()));
+document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>button.closest('dialog').close()));
+const activityPage=new URL(location.href).searchParams.has('page');
+if(activityPage) document.getElementById('tab-activity').click();
+@if($errors->any())
+document.getElementById('fund-receive').showModal();
+@endif
+})();
+</script>
 @endsection
