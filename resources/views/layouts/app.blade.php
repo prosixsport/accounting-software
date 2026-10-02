@@ -609,7 +609,7 @@
         || request()->routeIs('payrolls.*')
         || request()->routeIs('salary-management.*');
     $ownerFundsMenuOpen =
-        request()->routeIs('owner-funds.*');
+        request()->routeIs('funds-management.*');
 @endphp
 
 <div class="app-layout">
@@ -754,10 +754,10 @@
                     || $can('owner_funds')
                 )
             )
-                <a href="{{ route('owner-funds.index') }}"
+                <a href="{{ route('funds-management.index') }}"
                    class="side-link {{ $ownerFundsMenuOpen ? 'active' : '' }}">
                     <i class="bi bi-cash-stack"></i>
-                    <span>Owner Funds</span>
+                    <span>Funds Management</span>
                 </a>
             @endif
             {{-- Attendance --}}

@@ -160,32 +160,7 @@
         </div>
 
 
-<section class="sm-funds sm-section" style="margin-bottom:20px">
- <div class="d-flex justify-content-between flex-wrap gap-2"><div><h4>Funds & Payments</h4><p class="sm-hint">Cash received and actual payments through {{ $month->copy()->endOfMonth()->format('d M Y') }}. Salary commitments are shown separately above.</p></div><span class="sm-fund-date">Today: {{ now()->format('d M Y') }} · Week {{ min(5,intdiv(now()->day-1,7)+1) }}</span></div>
- <div class="sm-fund-cards">
- @foreach(['received'=>'Funds Received','advance'=>'Advances Paid','salary'=>'Final Salary Paid','expense'=>'Other Expenses','balance'=>'Cash Remaining'] as $key=>$label)
- <div><small>{{ $label }}</small><strong>Rs {{ number_format($funds[$key],2) }}</strong></div>
- @endforeach
- </div>
- <details><summary>Add Funds / Expense</summary>
- <form action="{{ route('salary-management.save') }}" method="post" class="row g-3 mt-2">
- @csrf
- <input type="hidden" name="month" value="{{ $monthKey }}"><input type="hidden" name="action" value="fund_entry">
- <div class="col-md-3"><label class="sm-label">Type</label><select class="sm-control" name="fund_type"><option value="receipt">Funds Received from Boss</option><option value="expense">Other Cash Expense / Loan Given</option></select></div>
- <div class="col-md-2"><label class="sm-label">Payment Date</label><input class="sm-control" name="fund_date" type="date" max="{{ now()->toDateString() }}" value="{{ $month->isSameMonth(now())?now()->toDateString():$month->toDateString() }}" required></div>
- <div class="col-md-2"><label class="sm-label">Amount</label><input class="sm-control" name="fund_amount" type="number" min="0.01" max="9999999999.99" step="0.01" required></div>
- <div class="col-md-3"><label class="sm-label">From / Paid To & Purpose</label><input class="sm-control" name="fund_description" maxlength="500" required placeholder="Boss funds / Bilal loan / transport"></div>
- <div class="col-md-2 align-self-end"><button class="sm-btn sm-btn-primary" type="submit">Save Entry</button></div>
- </form><p class="sm-hint mt-2">Salary and advances appear automatically. Add only other cash payments here to avoid counting them twice.</p>
- </details>
- <details class="mt-3"><summary>Full Cash Ledger · {{ count($funds['ledger']) }} entries</summary><div class="table-responsive mt-3"><table class="table"><thead><tr><th>Date</th><th>Week</th><th>Type</th><th>Worker / Description</th><th>Cash In</th><th>Cash Out</th><th>Balance</th></tr></thead><tbody>
- @forelse($funds['ledger'] as $entry)
- <tr><td>{{ $entry['date'] }}</td><td>{{ $entry['week'] }}</td><td>{{ $entry['type'] }}</td><td>{{ $entry['description'] }}</td><td>{{ number_format($entry['in'],2) }}</td><td>{{ number_format($entry['out'],2) }}</td><td>{{ number_format($entry['balance'],2) }}</td></tr>
- @empty
- <tr><td colspan="7">No cash entries yet.</td></tr>
- @endforelse
- </tbody></table></div><p class="sm-hint">Final salary uses the saved salary date and paid amount. Editing those fields updates this summary; it does not record separate salary payment instalments.</p></details>
-</section>
+<div class="sm-section mx-3 my-3"><a class="sm-btn" href="{{ route('funds-management.index',['month'=>$monthKey]) }}">Funds Management → Monthly cash ledger</a></div>
         <div class="sm-filters">
 
             <div class="sm-search-wrap"><i class="bi bi-search" aria-hidden="true"></i><input type="search" id="salary-search" class="sm-control" placeholder="Search name, employee code or phone" aria-label="Search employees"></div>

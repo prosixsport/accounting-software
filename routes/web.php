@@ -28,7 +28,6 @@ use App\Http\Controllers\BiometricTemplateController;
 use App\Http\Controllers\SalaryVerificationController;
 use App\Http\Controllers\MonthlyAlertController;
 use App\Http\Controllers\MonthlyAlertScheduleController;
-use App\Http\Controllers\OwnerFundController;
 
 /*
 |--------------------------------------------------------------------------
@@ -92,6 +91,7 @@ Route::post(
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth')->group(function () {
+    Route::get('/funds-management', [\App\Http\Controllers\FundsManagementController::class, 'index'])->name('funds-management.index');
     /*
     |--------------------------------------------------------------------------
     | Dashboard
@@ -177,10 +177,7 @@ Route::middleware('auth')->group(function () {
     | Owner Funds
     |--------------------------------------------------------------------------
     */
-    Route::resource(
-        'owner-funds',
-        OwnerFundController::class
-    );
+    Route::post('/funds-management/receipts', [\App\Http\Controllers\FundsManagementController::class, 'store'])->name('funds-management.store');
 
     /*
     |--------------------------------------------------------------------------
