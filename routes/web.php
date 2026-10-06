@@ -177,6 +177,7 @@ Route::middleware('auth')->group(function () {
     | Owner Funds
     |--------------------------------------------------------------------------
     */
+    Route::put('/funds-management/receipts/{receipt}', [\App\Http\Controllers\FundsManagementController::class, 'update'])->name('funds-management.update');
     Route::post('/funds-management/receipts', [\App\Http\Controllers\FundsManagementController::class, 'store'])->name('funds-management.store');
 
     /*
@@ -184,6 +185,8 @@ Route::middleware('auth')->group(function () {
     | Employees
     |--------------------------------------------------------------------------
     */
+    Route::patch('/employees/{employee}/status', [EmployeeController::class, 'setStatus'])->name('employees.status');
+
     Route::resource(
         'employees',
         EmployeeController::class
@@ -244,6 +247,7 @@ Route::middleware('auth')->group(function () {
     /*
      * Salary Management
      */
+    Route::patch('/salary-management/payment-status', [SalaryManagementController::class, 'paymentStatus'])->name('salary-management.payment-status');
     Route::get(
         '/salary-management',
         [SalaryManagementController::class, 'index']

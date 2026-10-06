@@ -117,7 +117,16 @@
 
     </div>
 
-<section id="sm-summary-panel" class="sm-card" hidden style="padding:18px;margin-bottom:18px"><div class="d-flex justify-content-between"><strong id="sm-summary-title"></strong><button type="button" class="sm-btn sm-btn-small" id="sm-summary-close">Close</button></div><p class="sm-hint" id="sm-summary-note"></p><div class="table-responsive" style="max-height:320px"><table class="table table-sm"><thead id="sm-summary-head"></thead><tbody id="sm-summary-body"></tbody><tfoot id="sm-summary-foot"></tfoot></table></div></section>
+<dialog id="sm-summary-panel" class="sm-summary-dialog" aria-labelledby="sm-summary-title"><div class="sm-popup-head"><div><strong id="sm-summary-title"></strong><p class="sm-hint" id="sm-summary-note"></p></div><button type="button" class="sm-btn sm-btn-small" id="sm-summary-close" aria-label="Close summary">Close ×</button></div><div id="sm-popup-week-control" hidden><label class="sm-label" for="sm-popup-week">Advance Week</label><select id="sm-popup-week" class="sm-control" hidden><option value="0">All Weeks</option>
+@for($week=1;$week<=5;$week++)
+<option value="{{ $week }}">Week {{ $week }}</option>
+@endfor
+</select><div class="sm-week-tabs" role="group" aria-label="Advance week">
+<button type="button" data-popup-week="0" aria-pressed="false">All Weeks</button>
+@for($week=1;$week<=ceil($month->daysInMonth/7);$week++)
+<button type="button" data-popup-week="{{ $week }}" aria-pressed="false">Week {{ $week }} · {{ ($week-1)*7+1 }}–{{ min($week*7,$month->daysInMonth) }}</button>
+@endfor
+</div></div><div class="table-responsive sm-popup-table"><table class="table table-sm"><thead id="sm-summary-head"></thead><tbody id="sm-summary-body"></tbody><tfoot id="sm-summary-foot"></tfoot></table></div></dialog>
 <p class="sm-hint" style="text-align:right" id="sm-live-state">Live totals · click a card to see employee details</p>
     <section class="sm-card" aria-label="All employee salary records">
 
@@ -128,19 +137,13 @@
 
                 <div><label class="sm-label" for="salary-month">Salary Month</label><input class="sm-control" id="salary-month" type="month" name="month" value="{{ $monthKey }}" required></div>
 
-                <button class="sm-btn sm-btn-primary" type="submit">Load</button>
-                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>$month->copy()->subMonthNoOverflow()->format('Y-m')]) }}">← Previous</a>
-                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>$month->copy()->addMonthNoOverflow()->format('Y-m')]) }}">Next →</a>
-                <a class="sm-btn" href="{{ route('salary-management.index', ['month'=>now()->format('Y-m')]) }}">This Month</a>
+                <button type="submit" class="sm-btn sm-btn-primary">Load</button>
+                <small id="sm-current-clock" class="sm-hint"></small>
 
             </form>
 
             <div class="sm-actions">
-                <div><label class="sm-label" for="sm-weeks-show">Advance Week</label><select class="sm-control" id="sm-weeks-show"><option value="0">All Weeks</option>
-@for($w=1;$w<=5;$w++)
-<option value="{{ $w }}">Week {{ $w }}</option>
-@endfor
-</select></div>
+                <select id="sm-weeks-show" hidden><option value="0">All Weeks</option></select>
                 @foreach(['dates'=>'Date-wise Sheet', 'weeks'=>'Weekly Salary Sheet'] as $mode=>$label)
 
                     @if($savedRows->isNotEmpty())
@@ -160,7 +163,7 @@
         </div>
 
 
-<div class="sm-section mx-3 my-3"><a class="sm-btn" href="{{ route('funds-management.index',['month'=>$monthKey]) }}">Funds Management → Monthly cash ledger</a></div>
+
         <div class="sm-filters">
 
             <div class="sm-search-wrap"><i class="bi bi-search" aria-hidden="true"></i><input type="search" id="salary-search" class="sm-control" placeholder="Search name, employee code or phone" aria-label="Search employees"></div>
@@ -185,7 +188,7 @@
 
         <div class="sm-table-wrap"><table class="sm-table">
 
-            <thead><tr><th><input type="checkbox" id="salary-select-all" aria-label="Select all saved employees shown by filters"></th><th>Employee</th><th>Department</th><th class="sm-money">Salary</th><th class="sm-money">Advance</th><th class="sm-money">Net Pay</th><th class="sm-money">Due</th><th>Record</th><th style="text-align:right">Actions</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="salary-select-all" aria-label="Select all saved employees shown by filters"></th><th>Employee</th><th>Department</th><th class="sm-money">Salary</th><th class="sm-money">Advance</th><th class="sm-money">Net Pay</th><th class="sm-money">Due</th><th>Record</th><th>Payment Status</th><th style="text-align:right">Actions</th></tr></thead>
 
             <tbody>
 
@@ -257,13 +260,48 @@
 
                     <td class="sm-money">{{ $row ? number_format($row->salary,2) : '—' }}</td>
 
-                    <td class="sm-money">{{ $row ? number_format($figures['advance'], 2) : '—' }}</td>
+                    <td class="sm-money">
+@if($row)
+<button type="button" class="sm-advance-total" data-employee-history="{{ $employee->id }}" title="View advance history">Rs {{ number_format($figures['advance'],2) }}</button>
+@else
+—
+@endif
+</td>
 
                     <td class="sm-money"><strong>{{ $row ? number_format($figures['net'], 2) : '—' }}</strong></td>
 
                     <td class="sm-money">{{ $row ? number_format($figures['due'], 2) : '—' }}</td>
 
                     <td><span class="sm-status {{ $row ? 'sm-status-saved' : 'sm-status-draft' }}">{{ $row ? 'Saved' : 'Not Saved' }}</span></td>
+                    @php
+                        $paymentLabel='Not Saved'; $paymentClass='sm-status-draft';
+                        if($row) {
+                            $remaining=round($figures['due'],2);
+                            $settlement=round($figures['net']+(float)$row->overdue,2);
+                            $paid=round((float)$row->paid_amount,2);
+                            if($settlement<0) { $paymentLabel='Excess Advance / Deduction'; }
+                            elseif($remaining<0) { $paymentLabel='Overpaid'; }
+                            elseif($remaining===0.0 && $paid>0) { $paymentLabel='Paid'; $paymentClass='sm-status-saved'; }
+                            elseif($remaining===0.0) { $paymentLabel='No Salary Due'; $paymentClass='sm-status-saved'; }
+                            elseif($paid>0) { $paymentLabel='Partially Paid'; }
+                            else { $paymentLabel='Unpaid'; }
+                        }
+                    @endphp
+                    <td><span class="sm-status {{ $paymentClass }}" title="Based on Final Salary Paid and Remaining Due">{{ $paymentLabel }}</span>
+                    @if($row)
+                    <small class="sm-cell-secondary">Paid: Rs {{ number_format($row->paid_amount,2) }}</small>
+                    <form method="post" action="{{ route('salary-management.payment-status') }}" class="mt-1" onsubmit="return confirm(this.dataset.confirm)" data-confirm="{{ $paymentLabel==='Paid' ? 'Mark this salary Unpaid? This reverses the recorded final salary payment.' : 'Confirm final salary has been paid? The full payable balance will be recorded as paid.' }}">
+                    @csrf
+                    @method('PATCH')
+                    <input type="hidden" name="month" value="{{ $monthKey }}">
+                    <input type="hidden" name="employee_id" value="{{ $employee->id }}">
+                    <input type="hidden" name="payment_status" value="{{ $paymentLabel==='Paid' ? 'unpaid' : 'paid' }}">
+                    <button class="sm-btn sm-btn-small" type="submit">{{ $paymentLabel==='Paid' ? 'Mark Unpaid' : 'Mark Paid' }}</button>
+                    </form>
+
+                    @endif
+                    </td>
+
 
                     <td><div class="sm-row-actions">
 
@@ -277,7 +315,7 @@
 
                 </tr>
 
-            @empty<tr><td colspan="9" class="sm-empty">No employees yet. Add employees from the Employees page first.</td></tr>@endforelse
+            @empty<tr><td colspan="10" class="sm-empty">No employees yet. Add employees from the Employees page first.</td></tr>@endforelse
 
             </tbody>
 
@@ -804,35 +842,53 @@ document.getElementById('sm-add-salary').addEventListener('click',()=>{document.
 
 <script>
 (function(){
- let overview={{ \Illuminate\Support\Js::from($overview) }}, revision={{ \Illuminate\Support\Js::from($revision) }}, current=null, busy=false;
+ let overview={{ \Illuminate\Support\Js::from($overview) }}, revision={{ \Illuminate\Support\Js::from($revision) }}, current=null, busy=false, historyEmployee=null;
+ const toolbar=document.querySelector('.sm-toolbar');
+ const filterBar=document.querySelector('.sm-filters'), bulk=document.getElementById('salary-bulk-print');
+ toolbar.after(filterBar);filterBar.appendChild(bulk);bulk.querySelector('p')?.remove();
  const weeks=document.getElementById('sm-weeks-show'),panel=document.getElementById('sm-summary-panel');
+ const popupWeek=document.getElementById('sm-popup-week');
+ const selectedMonth=document.getElementById('salary-month');
+
+ const dateParts=()=>Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Karachi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+ function followToday(){
+  document.getElementById('sm-current-clock').textContent=new Intl.DateTimeFormat('en-PK',{timeZone:'Asia/Karachi',dateStyle:'medium',timeStyle:'short'}).format(new Date());
+ }
+ document.querySelectorAll('[data-popup-week]').forEach(b=>b.addEventListener('click',()=>{popupWeek.value=b.dataset.popupWeek;render();}));
+
  const money=n=>'Rs '+Number(n).toLocaleString('en-PK',{minimumFractionDigits:2,maximumFractionDigits:2});
  const selectedAdvance=w=>(w.ledger||[]).filter(a=>(Number(weeks.value)===0 || Number(a.week)===Number(weeks.value))).reduce((sum,a)=>sum+Number(a.amount),0);
  function row(parent,values,tag='td') {const tr=document.createElement('tr');for(const val of values){const cell=document.createElement(tag);cell.textContent=val;tr.appendChild(cell);}parent.appendChild(tr);}
  function render(){
+  document.querySelectorAll('[data-main-week]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mainWeek===weeks.value)));
+  document.querySelectorAll('[data-popup-week]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.popupWeek===popupWeek.value)));
   const saved=overview.filter(w=>w.saved);
   const totals={employees:overview.length,salary:saved.reduce((s,w)=>s+w.salary,0),advance:saved.reduce((s,w)=>s+selectedAdvance(w),0),net:saved.reduce((s,w)=>s+w.net,0),due:saved.reduce((s,w)=>s+w.due,0)};
   document.querySelectorAll('[data-summary]').forEach(button=>{button.querySelector('strong').textContent=button.dataset.summary==='employees'?totals.employees:money(totals[button.dataset.summary]);button.setAttribute('aria-expanded',String(current===button.dataset.summary));});
   document.querySelector('[data-summary="employees"] small').textContent=saved.length+' saved · '+(overview.length-saved.length)+' pending';
   document.querySelector('[data-summary="advance"] small').textContent=(weeks.value==='0'?'All Weeks':'Week '+weeks.value)+' · click for payment details';
-  if(!current){panel.hidden=true;return;}panel.hidden=false;
-  const titles={employees:'All Employees',salary:'Saved Monthly Salaries',advance:'Advance Payments — '+(weeks.value==='0'?'All Weeks':'Week '+weeks.value),net:'Monthly Net Salary',due:'Remaining Salary Due'};
-  document.getElementById('sm-summary-title').textContent=titles[current];
-  document.getElementById('sm-summary-note').textContent=current==='advance'?'Shows saved payments for the selected weeks.':'Salary, net and due are monthly totals. Net and due include every saved advance.';
+  if(!current){if(panel.open)panel.close();return;}if(!panel.open)panel.showModal();
+  document.getElementById('sm-popup-week-control').hidden=current!=='advance';
+  const titles={employees:'All Employees',salary:'Saved Monthly Salaries',advance:'Advance Payments — '+(popupWeek.value==='0'?'All Weeks':'Week '+popupWeek.value),net:'Monthly Net Salary',due:'Remaining Salary Due'};
+  document.getElementById('sm-summary-title').textContent=historyEmployee ? (overview.find(w=>Number(w.id)===historyEmployee)?.name||'Worker')+' — Advance History' : titles[current];
+  document.getElementById('sm-summary-note').textContent=current==='advance'?'Select All Weeks or one week to see saved payments. This filter does not change your print selection.':'Salary, net and due are monthly totals. Net and due include every saved advance.';
   const head=document.getElementById('sm-summary-head'),body=document.getElementById('sm-summary-body'),foot=document.getElementById('sm-summary-foot');head.replaceChildren();body.replaceChildren();foot.replaceChildren();
   if(current==='advance'){
    row(head,['Worker','Department','Date','Week','Amount','Reason'],'th');
-   let count=0;for(const w of saved)for(const a of w.ledger||[])if((Number(weeks.value)===0 || Number(a.week)===Number(weeks.value))){row(body,[w.name,w.department||'—',a.date,'Week '+a.week,money(a.amount),a.reason||'—']);count++;}
-   if(!count)row(body,['No advance payments in these weeks.']);row(foot,['Total','','','',money(totals.advance),''],'th');
+   let count=0, advanceSum=0;for(const w of saved.filter(w=>historyEmployee===null||Number(w.id)===historyEmployee))for(const a of w.ledger||[])if((Number(popupWeek.value)===0 || Number(a.week)===Number(popupWeek.value))){row(body,[w.name,w.department||'—',a.date,'Week '+a.week,money(a.amount),a.reason||'—']);count++;advanceSum+=Number(a.amount);}
+   if(!count)row(body,['No advance payments in these weeks.']);row(foot,['Total','','','',money(advanceSum),''],'th');
   }else{
    row(head,['Worker','Department',current==='employees'?'Record':titles[current]],'th');
    const list=current==='employees'?overview:saved;for(const w of list)row(body,[w.name,w.department||'—',current==='employees'?(w.saved?'Saved':'Not Saved'):money(w[current])]);
    if(!list.length)row(body,['No saved salary records yet.']);row(foot,['Total','',current==='employees'?list.length:money(totals[current])],'th');
   }
  }
- document.querySelectorAll('[data-summary]').forEach(button=>button.addEventListener('click',()=>{current=current===button.dataset.summary?null:button.dataset.summary;render();}));
+ document.querySelectorAll('[data-summary]').forEach(button=>button.addEventListener('click',()=>{historyEmployee=null;current=button.dataset.summary;popupWeek.value=weeks.value;render();}));
+ document.querySelectorAll('[data-employee-history]').forEach(button=>button.addEventListener('click',()=>{historyEmployee=Number(button.dataset.employeeHistory);current='advance';popupWeek.value=weeks.value;render();}));
+ popupWeek.addEventListener('change',render);
+ panel.addEventListener('close',()=>{current=null;historyEmployee=null;document.querySelectorAll('[data-summary]').forEach(b=>b.setAttribute('aria-expanded','false'));});
  document.getElementById('sm-summary-close').addEventListener('click',()=>{current=null;render();});
- weeks.addEventListener('change',()=>{document.getElementById('sm-print-week-count').value=weeks.value;document.querySelectorAll('[data-saved-print]').forEach(a=>{const url=new URL(a.href,location.href);url.searchParams.delete('week_count');url.searchParams.set('week',weeks.value);a.href=url.href;});render();});
+ weeks.addEventListener('change',()=>{popupWeek.value=weeks.value;document.getElementById('sm-print-week-count').value=weeks.value;document.querySelectorAll('[data-saved-print]').forEach(a=>{const url=new URL(a.href,location.href);url.searchParams.delete('week_count');url.searchParams.set('week',weeks.value);a.href=url.href;});render();});
  async function refresh(afterSave=false){
   if(busy||document.hidden)return;
   if(!afterSave && document.querySelector('dialog[open]'))return;
@@ -852,7 +908,7 @@ document.getElementById('sm-add-salary').addEventListener('click',()=>{document.
    weeks.dispatchEvent(new Event('change'));document.getElementById('salary-search').dispatchEvent(new Event('input'));
    document.querySelectorAll('.sm-print-check').forEach(b=>{b.checked=!b.disabled&&(saved.selected||[]).includes(b.value);});const first=document.querySelector('.sm-print-check');if(first)first.dispatchEvent(new Event('change'));
   }
- }catch(e){}render();
+ }catch(e){}render();followToday();setInterval(followToday,15000);
 })();
 </script>
 <style>
@@ -870,4 +926,20 @@ document.getElementById('sm-add-salary').addEventListener('click',()=>{document.
 #sm-batch-dialog .sm-control{border-radius:10px;min-height:44px;border-color:#d8e3eb}#sm-batch-dialog footer{height:78px;box-sizing:border-box}
 .sm-funds{background:linear-gradient(120deg,#f0f8f7,#f4f7fc);padding:22px;border:1px solid #dce8ec;border-radius:16px;margin:16px 20px}.sm-funds h4{font-size:20px;font-weight:700;color:#153b4b}.sm-funds summary{font-weight:650;cursor:pointer;color:#176d68}.sm-fund-date{font-size:12px;color:#48717d}.sm-fund-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:18px 0}.sm-fund-cards>div{background:white;padding:16px;border-radius:12px;border:1px solid #e0e9ef}.sm-fund-cards small{display:block;color:#64748b}.sm-fund-cards strong{display:block;margin-top:8px;color:#153b4b;font-size:20px}.sm-fund-cards>div:last-child{background:#e1f2ec}
 @media(max-width:900px){#sm-batch-dialog{width:calc(100vw - 24px)!important;margin:12px;height:calc(100dvh - 24px);max-height:calc(100dvh - 24px)!important}.sm-fund-cards{grid-template-columns:repeat(2,1fr)}}
+</style>
+
+<style>
+.sm-summary-dialog{width:min(980px,94vw);max-height:85dvh;border:0;border-radius:16px;padding:22px;box-shadow:0 24px 85px #152c4340;color:#193440;background:#fff}.sm-summary-dialog::backdrop{background:#172e465c}.sm-popup-head{display:flex;justify-content:space-between;align-items:start;gap:15px;margin-bottom:12px}.sm-popup-head strong{font-size:18px}.sm-popup-head p{margin:6px 0 0}.sm-popup-table{max-height:55dvh;overflow:auto;margin-top:14px}.sm-popup-table thead{position:sticky;top:0;background:white}#sm-popup-week-control{width:150px}.sm-advance-total{border:0;background:#eaf5f1;color:#146d5c;font-size:12px;font-weight:650;border-radius:7px;padding:6px 9px;cursor:pointer}.salary-manager .sm-toolbar{padding:12px 16px;gap:10px;flex-wrap:nowrap}.salary-manager .sm-month-form,.salary-manager .sm-toolbar .sm-actions{flex-wrap:nowrap;gap:6px}.salary-manager .sm-btn{white-space:nowrap}.salary-manager .sm-filters{display:flex;align-items:center;gap:8px;padding:10px 16px}.salary-manager .sm-search-wrap{flex:1;min-width:180px}.salary-manager .sm-filters>select{width:170px}.salary-manager #salary-bulk-print{padding:0!important;border:0!important;margin:0}.salary-manager .sm-list-title{padding-top:12px}.salary-manager .sm-stats{margin-bottom:12px}.salary-manager .sm-stat{padding:13px}.salary-manager .sm-stat strong{font-size:21px}.salary-manager .sm-table td{padding:11px 16px}@media(max-width:1150px){.salary-manager .sm-toolbar{flex-wrap:wrap}.salary-manager .sm-filters{flex-wrap:wrap}}@media(max-width:640px){.salary-manager .sm-month-form{flex-wrap:wrap}.salary-manager .sm-toolbar .sm-actions{flex-wrap:wrap}.sm-summary-dialog{padding:16px}.salary-manager .sm-filters>select{width:calc(50% - 8px)}}
+</style>
+
+<style>
+.sm-week-tabs{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding:2px 0}.sm-week-tabs button{border:1px solid #dbe5e8;background:white;border-radius:8px;padding:8px 11px;font-size:12px;white-space:nowrap;color:#45606c}.sm-week-tabs button[aria-pressed=true]{background:#176e61;color:white;border-color:#176e61}#sm-popup-week-control{width:auto}.sm-summary-dialog{width:calc(100vw - 24px)!important;max-width:none!important;height:calc(100dvh - 24px);max-height:calc(100dvh - 24px)!important;margin:12px!important;padding:24px}.sm-summary-dialog .sm-popup-table{max-height:calc(100dvh - 200px);overflow:auto}#sm-batch-dialog{width:calc(100vw - 24px)!important;height:calc(100dvh - 24px)!important;max-height:calc(100dvh - 24px)!important;margin:12px!important}.salary-manager dialog.sm-editor{width:calc(100vw - 24px)!important;max-width:none!important;height:calc(100dvh - 24px);max-height:calc(100dvh - 24px)!important;margin:12px!important}.salary-manager .sm-toolbar{align-items:center}.salary-manager .sm-toolbar .sm-actions{flex-wrap:wrap}.salary-manager .sm-month-form{align-items:center}#sm-current-clock{max-width:145px}@media(max-width:640px){.sm-summary-dialog{padding:14px}.sm-week-tabs button{padding:7px 9px}}
+</style>
+
+<style>
+/* Add Salary fills the viewport. Advance summary stays compact. */
+#sm-batch-dialog{position:fixed!important;inset:0!important;width:100vw!important;max-width:100vw!important;height:100dvh!important;max-height:100dvh!important;margin:0!important;border:0!important;border-radius:0!important;box-sizing:border-box}
+#sm-batch-dialog .sm-section,#sm-batch-dialog fieldset>div.row,#sm-batch-dialog .sm-control,#sm-batch-dialog .sm-btn,#sm-entry-preview{border-radius:0!important}
+.sm-summary-dialog{width:min(1100px,94vw)!important;max-width:94vw!important;height:auto!important;max-height:88dvh!important;margin:auto!important;padding:22px!important}
+.sm-summary-dialog .sm-popup-table{max-height:60dvh}
 </style>

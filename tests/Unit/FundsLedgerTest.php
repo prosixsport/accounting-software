@@ -36,4 +36,10 @@ class FundsLedgerTest extends TestCase
         $report=$service->month($entries,Carbon::parse('2026-10-01'),Carbon::parse('2026-10-01'));
         $this->assertSame(20000,$report['received']);
     }
+    public function test_equal_receipts_in_the_same_module_also_require_review(): void
+    {
+        $service=new FundsLedger;
+        $entries=[$this->entry('2026-10-06',10000,0,'fund_receipts#1'),$this->entry('2026-10-06',10000,0,'fund_receipts#2')];
+        $this->assertCount(1,$service->review($entries));
+    }
 }

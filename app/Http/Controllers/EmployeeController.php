@@ -78,7 +78,7 @@ class EmployeeController extends Controller
             'designation' => $request->designation,
             'basic_salary' => $request->basic_salary,
             'joining_date' => $request->joining_date,
-            'status' => $request->status ?? 'active',
+            'status' => 'active',
             'address' => $request->address,
 
             'pictures' => $this->uploadMultipleFiles($request->file('pictures'), 'employees/pictures'),
@@ -188,7 +188,6 @@ class EmployeeController extends Controller
         'designation' => $request->designation,
         'basic_salary' => $request->basic_salary,
         'joining_date' => $request->joining_date,
-        'status' => $request->status ?? 'active',
         'address' => $request->address,
 
         'pictures' => $pictures,
@@ -200,6 +199,16 @@ class EmployeeController extends Controller
         ->route('employees.show', $employee->id)
         ->with('success', 'Employee updated successfully.');
 }
+
+    public function setStatus(Request $request, Employee $employee)
+    {
+        abort_unless($request->user()->hasPermission('employees'), 403);
+        $data = $request->validate(['status' => ['required', 'in:active,inactive']]);
+        $employee->update(['status' => $data['status']]);
+
+        return redirect()->route('employees.index')
+            ->with('success', $employee->name.' is now '.$data['status'].'.');
+    }
 
     public function destroy(Employee $employee)
     {

@@ -865,46 +865,6 @@
 
                             </div>
 
-                            {{-- Status --}}
-                            <div class="col-md-6">
-
-                                <div class="employee-field">
-
-                                    <label class="form-label">
-                                        Status
-                                    </label>
-
-                                    <div class="input-icon-wrapper">
-
-                                        <i class="bi bi-toggle-on"></i>
-
-                                        <select name="status"
-                                                class="form-select employee-input @error('status') is-invalid @enderror">
-
-                                            <option value="inactive"
-                                                {{ old('status', $employee->status) === 'inactive' ? 'selected' : '' }}>
-                                                Inactive
-                                            </option>
-
-                                            <option value="active"
-                                                {{ old('status', $employee->status) === 'active' ? 'selected' : '' }}>
-                                                Active
-                                            </option>
-
-                                        </select>
-
-                                    </div>
-
-                                    @error('status')
-                                        <div class="invalid-feedback d-block">
-                                            {{ $message }}
-                                        </div>
-                                    @enderror
-
-                                </div>
-
-                            </div>
-
                             {{-- Address --}}
                             <div class="col-12">
 

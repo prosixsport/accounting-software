@@ -37,7 +37,7 @@ class FundsLedger
         foreach (DB::table('fund_receipts')->get() as $r) $add('fund_receipts',$r->id,$r->receipt_date,'Boss funds',$r->boss,$r->amount,true,$r->notes,$r->method);
         $employees = DB::table('employees')->pluck('name','id');
         foreach (DB::table('salary_management_advances')->join('salary_management_rows','salary_management_rows.id','=','salary_management_advances.salary_row_id')->select('salary_management_advances.*','salary_management_rows.employee_id')->get() as $r) $add('salary_management_advances',$r->id,$r->advance_date,'Salary advance',$employees[$r->employee_id]??null,$r->amount,false,$r->reason);
-        foreach (DB::table('salary_management_rows')->where('paid_amount','>',0)->get() as $r) $add('salary_management_rows',$r->id,$r->salary_date ?: $r->month,'Salary paid',$employees[$r->employee_id]??null,$r->paid_amount,false,'Salary '.substr($r->month,0,7));
+        foreach (DB::table('salary_management_rows')->where('paid_amount','>',0)->get() as $r) $add('salary_management_rows',$r->id,($r->payment_date ?? null) ?: ($r->salary_date ?: $r->month),'Salary paid',$employees[$r->employee_id]??null,$r->paid_amount,false,'Salary '.substr($r->month,0,7));
         foreach (DB::table('employee_advances')->get() as $r) $add('employee_advances',$r->id,$r->advance_date,'Payroll advance',$employees[$r->employee_id]??null,$r->amount,false,$r->remarks);
         foreach (DB::table('payrolls')->where('payment_status','paid')->get() as $r) {
             if (!$r->payment_date) throw new InvalidArgumentException('Paid payroll #'.$r->id.' has no payment date. Correct its payment date before reconciling funds.');
@@ -49,8 +49,22 @@ class FundsLedger
         foreach (DB::table('expenses')->get() as $r) $add('expenses',$r->id,$r->expense_date,'Expense / bill',$r->vendor_name,$r->amount,false,$r->description,$r->payment_method);
         $customers=DB::table('customers')->pluck('customer_name','id');
         foreach (DB::table('payments')->get() as $r) $add('payments',$r->id,$r->payment_date,'Customer receipt',$customers[$r->customer_id]??null,$r->amount,true,$r->payment_no,$r->payment_method);
+        $receipts=DB::table('fund_receipts')->get()->keyBy('id');
         $actors=DB::table('fund_activity')->where('action','created')->get()->keyBy(fn($r)=>$r->source.'#'.$r->source_id);
-        foreach ($entries as &$entry) $entry['actor']=$actors[$entry['reference']]->actor ?? 'Historical — user not recorded';
+        foreach ($entries as &$entry) {
+            $entry['actor']=$actors[$entry['reference']]->actor ?? 'Historical — user not recorded';
+            $entry['receiver']=null; $entry['photo']=null; $entry['edit_url']=null;
+            [$source,$id]=explode('#',$entry['reference']);
+            if($source==='fund_receipts') {
+                $receipt=$receipts[$id]; $entry['receiver']=$receipt->receiver_name;
+                $entry['photo']=$receipt->receiver_photo;
+                $entry['edit_url']=route('funds-management.index',['edit'=>$id]);
+            } elseif($source==='expenses') $entry['edit_url']=route('expenses.edit',$id);
+            elseif($source==='payments') $entry['edit_url']=route('payments.edit',$id);
+            elseif($source==='payrolls') $entry['edit_url']=route('payrolls.edit',$id);
+            elseif(in_array($source,['salary_management_rows','salary_management_advances'])) $entry['edit_url']=route('salary-management.index',['month'=>substr($entry['date'],0,7)]);
+            elseif(in_array($source,['contractor_bill_payments','contractor_advances'])) $entry['edit_url']=route('contractor-bills.index');
+        }
         unset($entry);
         usort($entries,fn($a,$b)=>[$a['date'],$a['reference']]<=>[$b['date'],$b['reference']]);
         return $entries;
@@ -66,7 +80,7 @@ class FundsLedger
         foreach($groups as $group){
             if(count($group)<2)continue;
             $sources=array_unique(array_map(fn($entry)=>explode('#',$entry['reference'])[0],$group));
-            if(count($sources)>1)$warnings[]='Review possible duplicate: '.implode(', ',array_column($group,'reference')).' · '.$group[0]['date'].' · '.$group[0]['party'].'. Both records are included until corrected in their source modules.';
+            $warnings[]='Review possible duplicate: '.implode(', ',array_column($group,'reference')).' · '.$group[0]['date'].' · '.$group[0]['party'].'. Both records are included until corrected in their source modules.';
         }
         return $warnings;
     }

@@ -25,22 +25,53 @@ class FundsManagementController extends Controller
             return [$report,$service->review($entries)];
         });
         $accessUsers=\App\Models\User::with('permissions')->get()->filter(fn($u)=>$u->hasPermission('owner_funds'));
+        $editReceipt=$request->filled('edit') ? \App\Models\FundReceipt::findOrFail($request->validate(['edit'=>['required','integer','min:1']])['edit']) : null;
         $activity=DB::table('fund_activity')->orderByDesc('id')->paginate(30);
-        return view('funds-management.index',compact('month','report','warnings','accessUsers','activity'));
+        return view('funds-management.index',compact('month','report','warnings','accessUsers','activity','editReceipt'));
     }
-    public function store(Request $request)
+    private function receiptData(Request $request, bool $editing=false): array
     {
-        abort_unless($request->user()->hasPermission('owner_funds'),403);
-        $data=$request->validate([
+        return $request->validate([
             'receipt_date'=>['required','date_format:Y-m-d','before_or_equal:today'],
             'boss'=>['required','in:Boss Azeem,Boss Atif,Boss Kashif'],
             'amount'=>['required','regex:/^\d{1,13}(\.\d{1,2})?$/','numeric','min:0.01'],
             'method'=>['required','in:cash,bank'], 'notes'=>['nullable','string','max:2000'],
-            'submission_key'=>['required','uuid'],
+            'receiver_name'=>['required','string','max:150'],
+            'receiver_photo'=>[$editing?'nullable':'required','image','mimes:jpg,jpeg,png,webp','max:5120'],
+            'submission_key'=>[$editing?'nullable':'required','uuid'],
         ]);
-        DB::transaction(function() use($data,$request) {
-            \App\Models\FundReceipt::firstOrCreate(['submission_key'=>$data['submission_key']],$data+['created_by'=>$request->user()->id]);
-        });
-        return redirect()->route('funds-management.index',[])->with('success','Cash receipt saved.');
+    }
+    public function store(Request $request)
+    {
+        abort_unless($request->user()->hasPermission('owner_funds'),403);
+        $data=$this->receiptData($request);
+        $existing=\App\Models\FundReceipt::where('submission_key',$data['submission_key'])->first();
+        if($existing) return redirect()->route('funds-management.index')->with('success','Receipt already saved.');
+        $path=$request->file('receiver_photo')->store('funds/receivers','public');
+        $data['receiver_photo']=$path;
+        try {
+            $receipt=DB::transaction(fn()=>\App\Models\FundReceipt::firstOrCreate(['submission_key'=>$data['submission_key']],$data+['created_by'=>$request->user()->id]));
+            if($receipt->receiver_photo!==$path) \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
+        } catch(\Throwable $e) { \Illuminate\Support\Facades\Storage::disk('public')->delete($path); throw $e; }
+        return redirect()->route('funds-management.index')->with('success','Cash receipt saved with receiver and photo.');
+    }
+    public function update(Request $request, \App\Models\FundReceipt $receipt)
+    {
+        abort_unless($request->user()->hasPermission('owner_funds'),403);
+        $data=$this->receiptData($request,true);
+        $request->validate(['version'=>['required','string']]);
+        unset($data['submission_key'],$data['receiver_photo']);
+        $path=$request->hasFile('receiver_photo') ? $request->file('receiver_photo')->store('funds/receivers','public') : null;
+        try {
+            DB::transaction(function() use($request,$receipt,$data,$path) {
+                $locked=\App\Models\FundReceipt::lockForUpdate()->findOrFail($receipt->id);
+                if(!hash_equals(hash('sha256',json_encode($locked->getAttributes())),$request->input('version'))) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['receipt'=>'Receipt changed by another user. Reload before editing.']);
+                }
+                $locked->update($data+($path?['receiver_photo'=>$path]:[]));
+            });
+        } catch(\Throwable $e) { if($path) \Illuminate\Support\Facades\Storage::disk('public')->delete($path); throw $e; }
+        // Retain earlier photos: activity history still references them.
+        return redirect()->route('funds-management.index')->with('success','Receipt corrected. Balance updated and change recorded.');
     }
 }

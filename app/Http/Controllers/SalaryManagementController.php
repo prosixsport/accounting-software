@@ -60,6 +60,24 @@ class SalaryManagementController extends Controller {
   if ($request->expectsJson()) return response()->json(['message'=>'Salary saved.','row'=>$row->fresh()->toArray(),'advance'=>$row->load('advances')->figures()['advance'],'ledger'=>$row->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values()]);
   return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success','Salary details saved.')->with('active_employee',$data['employee_id'])->with('active_tab','salary');
  }
+ public function paymentStatus(Request $request) {
+  $month=$this->month($request);
+  $data=$request->validate(['employee_id'=>['required','integer',Rule::exists('employees','id')],'payment_status'=>['required',Rule::in(['paid','unpaid'])]]);
+  DB::transaction(function() use($data,$month) {
+   $row=SalaryManagementRow::where('employee_id',$data['employee_id'])->whereDate('month',$month->toDateString())->lockForUpdate()->firstOrFail();
+   $row->load('advances');
+   $amount=round($row->figures()['net']+(float)$row->overdue,2);
+   if($data['payment_status']==='paid' && $amount<=0) throw \Illuminate\Validation\ValidationException::withMessages(['payment_status'=>'No positive salary balance is payable.']);
+   if($data['payment_status']==='paid') {
+    if(round((float)$row->paid_amount,2)!==$amount) {
+     $row->paid_amount=$amount;
+     $row->payment_date=now('Asia/Karachi')->toDateString();
+    }
+   } else { $row->paid_amount=0; $row->payment_date=null; }
+   $row->save();
+  });
+  return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success',$data['payment_status']==='paid'?'Salary marked Paid.':'Salary marked Unpaid.');
+ }
  public function advance(Request $request) {
   $month=$this->month($request);
   $data=$request->validate(['employee_id'=>['required',Rule::exists('employees','id')],'advance_date'=>['required','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()],'advance_week'=>['required','integer','min:1','max:5'],'amount'=>['required','numeric','min:0.01','max:9999999999.99'],'reason'=>['nullable','string','max:1000']]);

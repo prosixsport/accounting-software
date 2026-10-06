@@ -502,29 +502,22 @@
 
                             </td>
 
-                            {{-- STATUS --}}
+                            {{-- Status is managed directly from this list. --}}
                             <td>
-
-                                @if($employee->status === 'active')
-
-                                    <span class="employee-status active-status">
-
+                                <form method="post" action="{{ route('employees.status', $employee) }}">
+                                    @csrf
+                                    @method('PATCH')
+                                    <input type="hidden" name="status" value="{{ $employee->status === 'active' ? 'inactive' : 'active' }}">
+                                    <button type="submit"
+                                            class="employee-status {{ $employee->status === 'active' ? 'active-status' : 'inactive-status' }}"
+                                            style="cursor:pointer"
+                                            title="{{ $employee->status === 'active' ? 'Click to make inactive' : 'Click to make active' }}"
+                                            aria-label="{{ $employee->name }}: {{ $employee->status === 'active' ? 'Active; click to make inactive' : 'Inactive; click to make active' }}">
                                         <span></span>
-                                        Active
-
-                                    </span>
-
-                                @else
-
-                                    <span class="employee-status inactive-status">
-
-                                        <span></span>
-                                        Inactive
-
-                                    </span>
-
-                                @endif
-
+                                        {{ $employee->status === 'active' ? 'Active' : 'Inactive' }}
+                                        <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                                    </button>
+                                </form>
                             </td>
 
                             {{-- ICON ACTIONS --}}
