@@ -10,7 +10,7 @@
 @endphp
 
 <div class="funds-screen">
-<header class="funds-head"><div><h3>Funds Management</h3><small>All records through {{ now()->format('d M Y') }}</small></div><div class="funds-actions"><button type="button" class="btn btn-outline-dark" data-dialog="fund-access" title="Who has access?" aria-label="View funds access"><i class="bi bi-eye"></i></button><button type="button" class="btn btn-dark" data-dialog="fund-receive">+ Receive Funds from Boss</button></div></header>
+<header class="funds-head"><div><h3>Funds Management</h3><small>{{ $month->format('F Y') }} · Cash flow through {{ $report['end'] }}</small></div><div class="funds-actions"><form method="get" action="{{ route('funds-management.index') }}" class="fund-month"><input aria-label="Report month" type="month" name="month" value="{{ $month->format('Y-m') }}" max="{{ now('Asia/Karachi')->format('Y-m') }}" required><button class="btn btn-outline-dark">Load</button></form><button type="button" class="btn btn-outline-dark" data-dialog="fund-return">Return Cash to Boss</button><button type="button" class="btn btn-outline-dark" data-dialog="fund-access" title="Who has access?" aria-label="View funds access"><i class="bi bi-eye"></i></button><button type="button" class="btn btn-dark" data-dialog="fund-receive">+ Receive Funds from Boss</button></div></header>
 
 @if(session('success'))
 <div class="alert alert-success py-2">{{ session('success') }}</div>
@@ -19,7 +19,7 @@
 
 
 <div class="funds-stats">
-@foreach(['received'=>'Total Received','spent'=>'Total Used','closing'=>'Remaining Balance'] as $key=>$label)
+@foreach(['opening'=>'Opening Balance','received'=>'Funds Received','spent'=>'Salary + Bills Paid','returned'=>'Returned to Bosses','closing'=>'Remaining Balance'] as $key=>$label)
 <div><small>{{ $label }}</small><strong>Rs {{ $money($report[$key]) }}</strong></div>
 
 @endforeach
@@ -27,7 +27,7 @@
 </div>
 <div class="funds-tabs" role="tablist" aria-label="Funds details">
 
-@foreach(['overview'=>'Overview','ledger'=>'Transactions','activity'=>'User Activity','review'=>'Review ('.count($warnings).')'] as $key=>$label)
+@foreach(['overview'=>'Overview','ledger'=>'Transactions','returns'=>'Cash Returns','activity'=>'User Activity','review'=>'Review ('.count($warnings).')'] as $key=>$label)
 <button type="button" role="tab" id="tab-{{ $key }}" aria-controls="panel-{{ $key }}" aria-selected="{{ $key==='overview'?'true':'false' }}" data-panel="{{ $key }}">{{ $label }}</button>
 
 @endforeach
@@ -35,7 +35,21 @@
 
 </div>
 <div class="funds-body">
-<section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview"><div class="funds-grid"><article><h5>Received from Bosses</h5><table class="table">
+<section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview"><div class="fw-section-title"><div><h5>Weekly Cash Flow</h5><small>Each week's remaining balance carries into the next week.</small></div><span>{{ $month->format('F Y') }}</span></div>
+<div class="fw-weeks">
+@foreach($report['weeks'] as $week)
+<article class="fw-week"><header><div><strong>Week {{ $week['number'] }}</strong><small>{{ \Illuminate\Support\Carbon::parse($week['start'])->format('d M') }} – {{ \Illuminate\Support\Carbon::parse($week['end'])->format('d M') }}</small></div><button type="button" data-dialog="fund-week-{{ $week['number'] }}">Info ↗</button></header>
+@if($week['future'])
+<p class="funds-note">Upcoming week · no actual transactions yet</p>
+@endif
+@foreach(['opening'=>'Carry Forward','received'=>'New Funds','available'=>'Total Available','spent'=>'Salary + Bills','returned'=>'Cash Returned','closing'=>'Remaining'] as $key=>$label)
+<div class="fw-line fw-{{ $key }}"><span>{{ $label }}</span><strong>Rs {{ $money($week[$key]) }}</strong></div>
+@endforeach
+</article>
+@endforeach
+</div>
+<div class="fw-section-title"><div><h5>Funds Breakdown</h5><small>Payments below are included in total spent, counted once.</small></div></div>
+<div class="funds-grid"><article><h5>Received from Bosses</h5><table class="table">
 @foreach(['Boss Azeem','Boss Atif','Boss Kashif'] as $boss)
 <tr><td>{{ $boss }}</td><th>Rs {{ $money($report['bosses'][$boss]??0) }}</th></tr>
 
@@ -118,7 +132,14 @@
 @endforelse
 
 
-</tbody><tfoot><tr><th colspan="5">Totals</th><th>{{ $money($report['received']) }}</th><th>{{ $money($report['spent']) }}</th><th>{{ $money($report['closing']) }}</th></tr></tfoot></table></div></section>
+</tbody><tfoot><tr><th colspan="5">Totals</th><th>{{ $money($report['received']) }}</th><th>{{ $money($report['spent']+$report['returned']) }}</th><th>{{ $money($report['closing']) }}</th></tr></tfoot></table></div></section>
+<section id="panel-returns" role="tabpanel" aria-labelledby="tab-returns" hidden><h5>Returned Cash Register</h5><p class="funds-note">Actual cash handed back to a boss. This reduces the remaining balance.</p><table class="table"><thead><tr><th>Date</th><th>Returned To</th><th>Amount</th><th>Entry By</th><th>Remarks</th></tr></thead><tbody>
+@forelse(array_filter($report['ledger'],fn($e)=>$e['type']==='Cash returned to boss') as $entry)
+<tr><td>{{ $entry['date'] }}</td><td>{{ $entry['party'] }}</td><th>Rs {{ $money($entry['out']) }}</th><td>{{ $entry['actor'] }}</td><td>{{ $entry['description'] }}</td></tr>
+@empty
+<tr><td colspan="5">No cash returns in this month.</td></tr>
+@endforelse
+</tbody></table></section>
 <section id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" hidden>
 @forelse($activity as $log)
 
@@ -190,6 +211,27 @@ $changed=array_filter($fields,fn($key)=>!in_array($key,['created_at','updated_at
 
 </section>
 </div></div>
+<dialog id="fund-return" class="fund-dialog"><div class="dialog-head"><h4>Return Cash to Boss</h4><button type="button" data-close aria-label="Close">×</button></div>
+@if(old('return_date') && $errors->any())
+<div class="alert alert-danger">{{ $errors->first() }}</div>
+@endif
+<form method="post" action="{{ route('funds-management.returns.store') }}" class="row g-3">@csrf
+<input type="hidden" name="submission_key" value="{{ old('return_date') ? old('submission_key') : (string)\Illuminate\Support\Str::uuid() }}">
+<div class="col-md-6"><label class="form-label">Return Date</label><input class="form-control" type="date" name="return_date" value="{{ old('return_date',now('Asia/Karachi')->toDateString()) }}" max="{{ now('Asia/Karachi')->toDateString() }}" required></div>
+<div class="col-md-6"><label class="form-label">Returned To</label><select name="boss" class="form-select" required>
+@foreach(['Boss Azeem','Boss Atif','Boss Kashif'] as $boss)
+<option @selected(old('boss')===$boss)>{{ $boss }}</option>
+@endforeach
+</select></div><div class="col-12"><label class="form-label">Amount Actually Returned</label><input class="form-control" type="number" name="amount" min="0.01" step="0.01" max="9999999999999.99" value="{{ old('return_date') ? old('amount') : '' }}" required></div><div class="col-12"><label class="form-label">Remarks</label><textarea name="notes" class="form-control" maxlength="2000">{{ old('return_date') ? old('notes') : '' }}</textarea></div><div class="col-12"><button class="btn btn-dark">Save Cash Return</button></div></form></dialog>
+@foreach($report['weeks'] as $week)
+<dialog id="fund-week-{{ $week['number'] }}" class="fund-dialog fw-detail"><div class="dialog-head"><h4>Week {{ $week['number'] }} · Transaction Details</h4><button type="button" data-close aria-label="Close">×</button></div><p>{{ $week['start'] }} to {{ $week['end'] }}</p><div class="table-responsive"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Person / Boss</th><th>Received</th><th>Paid / Returned</th><th>Recorded By</th></tr></thead><tbody>
+@forelse($week['ledger'] as $entry)
+<tr><td>{{ $entry['date'] }}</td><td>{{ $entry['type'] }}</td><td>{{ $entry['party'] }}<small class="d-block">{{ $entry['description'] }}</small></td><td>Rs {{ $money($entry['in']) }}</td><td>Rs {{ $money($entry['out']) }}</td><td>{{ $entry['actor'] }}</td></tr>
+@empty
+<tr><td colspan="6">No actual transactions recorded in this week.</td></tr>
+@endforelse
+</tbody></table></div><strong>Remaining: Rs {{ $money($week['closing']) }}</strong></dialog>
+@endforeach
 <dialog id="fund-receive" class="fund-dialog" aria-labelledby="receive-title"><div class="dialog-head"><h4 id="receive-title">{{ $editReceipt ? 'Edit Funds Receipt' : 'Receive Funds from Boss' }}</h4><button type="button" data-close aria-label="Close">×</button></div>
 
 @if($errors->any())
@@ -260,7 +302,9 @@ document.getElementById('receiver-photo-input').addEventListener('change',functi
 const activityPage=new URL(location.href).searchParams.has('page');
 if(activityPage) document.getElementById('tab-activity').click();
 
-@if($errors->any() || $editReceipt)
+@if(old('return_date') && $errors->any())
+document.getElementById('fund-return').showModal();
+@elseif($errors->any() || $editReceipt)
 
 document.getElementById('fund-receive').showModal();
 
@@ -270,6 +314,13 @@ document.getElementById('fund-receive').showModal();
 
 })();
 </script>
+
+
+<style>
+.funds-screen{color:#203346;gap:14px}.funds-head{background:#fff;border:1px solid #e0e7ef;border-radius:12px;padding:18px 20px}.funds-head h3{font-size:23px;letter-spacing:-.5px}.funds-actions{flex-wrap:wrap;justify-content:flex-end}.funds-actions .btn{font-size:12px;border-radius:8px;padding:9px 12px}.fund-month{display:flex;gap:6px}.fund-month input{border:1px solid #dce5ee;border-radius:8px;padding:8px;font-size:12px}.funds-stats{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.funds-stats>div{border-color:#e0e7ef;border-radius:12px;padding:15px;background:#fff}.funds-stats>div:last-child{background:#eaf8f2;border-color:#cfe9df}.funds-stats>div:nth-child(3) strong{color:#c84d51}.funds-stats>div:nth-child(4) strong{color:#3266cb}.funds-stats strong{font-size:clamp(16px,1.6vw,23px);font-variant-numeric:tabular-nums}.funds-tabs{border-bottom:1px solid #e1e8ee;padding-bottom:8px}.funds-tabs button{background:#eef3f8;border-radius:7px}.funds-tabs button[aria-selected=true]{background:#203c54}.funds-body{border-radius:12px;border-color:#e0e7ef;padding:18px}.fw-section-title{display:flex;justify-content:space-between;align-items:center;margin:0 0 14px;gap:12px}.fw-section-title h5{font-size:16px;font-weight:750;margin:0 0 4px}.fw-section-title small,.fw-section-title>span{font-size:11px;color:#7c8a98}.fw-weeks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:22px}.fw-week{border:1px solid #e0e7ef;border-radius:10px;background:#fbfdff;padding:13px}.fw-week header{display:flex;justify-content:space-between;align-items:center;gap:6px;border-bottom:1px solid #e4eaf0;padding-bottom:10px;margin-bottom:9px}.fw-week header strong{font-size:13px;color:#2f6398}.fw-week header small{display:block;font-size:10px;color:#7b8a9a;margin-top:3px}.fw-week button{font-size:10px;border:1px solid #dbe7f3;background:#edf5ff;color:#35689c;border-radius:6px;padding:4px 6px}.fw-line{display:flex;justify-content:space-between;gap:5px;font-size:11px;margin:10px 0}.fw-line strong{white-space:nowrap;font-size:11px;font-variant-numeric:tabular-nums}.fw-available,.fw-closing{border-top:1px solid #e1e8ed;padding-top:10px}.fw-spent strong{color:#c35155}.fw-returned strong{color:#356ac4}.fw-closing strong{color:#16816a}.funds-grid article{border:1px solid #e4eaf0;border-radius:10px;padding:14px}.funds-grid{gap:14px}.funds-screen .table{margin-bottom:0}.fw-detail{width:min(1100px,95vw)}.fund-dialog{border-radius:12px}.funds-screen .table th{font-weight:650}.funds-screen .table td,.funds-screen .table th{font-size:12px;padding:9px;border-color:#edf1f5}
+@media(max-width:1200px){.fw-weeks{grid-template-columns:repeat(3,minmax(0,1fr))}.funds-head{flex-wrap:wrap}.funds-stats strong{font-size:17px}}
+@media(max-width:700px){.funds-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.fw-weeks{grid-template-columns:1fr}.funds-screen{height:auto;overflow:visible}.funds-body{overflow:visible}.funds-head{padding:14px}.funds-actions{justify-content:flex-start}}
+</style>
 
 @endsection
 

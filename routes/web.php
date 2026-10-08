@@ -178,6 +178,7 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::put('/funds-management/receipts/{receipt}', [\App\Http\Controllers\FundsManagementController::class, 'update'])->name('funds-management.update');
+    Route::post('/funds-management/returns', [\App\Http\Controllers\FundsManagementController::class, 'returnCash'])->name('funds-management.returns.store');
     Route::post('/funds-management/receipts', [\App\Http\Controllers\FundsManagementController::class, 'store'])->name('funds-management.store');
 
     /*

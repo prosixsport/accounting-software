@@ -9,25 +9,47 @@ class FundsManagementController extends Controller
     public function index(Request $request, FundsLedger $service)
     {
         abort_unless($request->user()->hasPermission('owner_funds'),403);
-        $today=now();
-        $month=$today->copy()->startOfMonth();
-        [$report,$warnings]=DB::transaction(function() use($service,$today){
+        $today=now('Asia/Karachi');
+        $data=$request->validate(['month'=>['nullable','date_format:Y-m']]);
+        $month=Carbon::createFromFormat('!Y-m',$data['month']??$today->format('Y-m'))->startOfMonth();
+        abort_if($month->format('Y-m')>$today->format('Y-m'),422,'Select the current or a previous month.');
+        [$report,$warnings]=DB::transaction(function() use($service,$today,$month){
             $entries=$service->entries();
-            $report=['received'=>0,'spent'=>0,'closing'=>0,'bosses'=>[], 'categories'=>[], 'ledger'=>[], 'future'=>[]];
-            foreach($entries as $entry) {
-                if($entry['date']>$today->toDateString()) { $report['future'][]=$entry; continue; }
-                $report['received']+=$entry['in']; $report['spent']+=$entry['out'];
-                $report['closing']=$report['received']-$report['spent'];
-                $entry['balance']=$report['closing']; $report['ledger'][]=$entry;
-                if(in_array($entry['type'],['Boss funds','Legacy funds'],true)) $report['bosses'][$entry['party']]=($report['bosses'][$entry['party']]??0)+$entry['in'];
-                if($entry['out']) $report['categories'][$entry['type']]=($report['categories'][$entry['type']]??0)+$entry['out'];
+            $report=$service->month($entries,$month,$today);
+            $report['returned']=0;
+            foreach($report['ledger'] as $entry) if($entry['type']==='Cash returned to boss') $report['returned']+=$entry['out'];
+            $report['spent']-=$report['returned'];
+            unset($report['categories']['Cash returned to boss']);
+            $weeks=[];$carry=$report['opening'];
+            for($w=1;$w<=ceil($month->daysInMonth/7);$w++) {
+                $start=$month->copy()->day(($w-1)*7+1)->toDateString();
+                $end=$month->copy()->day(min($w*7,$month->daysInMonth))->toDateString();
+                $rows=array_values(array_filter($report['ledger'],fn($e)=>$e['date']>=$start&&$e['date']<=$end));
+                $incoming=0;$spent=0;$returned=0;
+                foreach($rows as $e){$incoming+=$e['in'];if($e['type']==='Cash returned to boss')$returned+=$e['out'];else $spent+=$e['out'];}
+                $weeks[]=['number'=>$w,'start'=>$start,'end'=>$end,'opening'=>$carry,'received'=>$incoming,'available'=>$carry+$incoming,'spent'=>$spent,'returned'=>$returned,'closing'=>$carry+$incoming-$spent-$returned,'ledger'=>$rows,'future'=>$start>$today->toDateString()];
+                $carry+=$incoming-$spent-$returned;
             }
-            return [$report,$service->review($entries)];
+            $report['weeks']=$weeks;
+            return [$report,$service->review($report['ledger'])];
         });
         $accessUsers=\App\Models\User::with('permissions')->get()->filter(fn($u)=>$u->hasPermission('owner_funds'));
         $editReceipt=$request->filled('edit') ? \App\Models\FundReceipt::findOrFail($request->validate(['edit'=>['required','integer','min:1']])['edit']) : null;
-        $activity=DB::table('fund_activity')->orderByDesc('id')->paginate(30);
+        $activity=DB::table('fund_activity')->orderByDesc('id')->paginate(30)->withQueryString();
         return view('funds-management.index',compact('month','report','warnings','accessUsers','activity','editReceipt'));
+    }
+    public function returnCash(Request $request)
+    {
+        abort_unless($request->user()->hasPermission('owner_funds'),403);
+        $data=$request->validate(['return_date'=>['required','date_format:Y-m-d','before_or_equal:today'],'boss'=>['required','in:Boss Azeem,Boss Atif,Boss Kashif'],'amount'=>['required','regex:/^\d{1,13}(\.\d{1,2})?$/','numeric','min:0.01'],'notes'=>['nullable','string','max:2000'],'submission_key'=>['required','uuid']]);
+        DB::transaction(function() use($data,$request){
+            // Serialize duplicate submissions against the current authenticated user.
+            DB::table('users')->where('id',$request->user()->id)->lockForUpdate()->first();
+            if(DB::table('fund_returns')->where('submission_key',$data['submission_key'])->exists())return;
+            $id=DB::table('fund_returns')->insertGetId($data+['created_by'=>$request->user()->id,'created_at'=>now(),'updated_at'=>now()]);
+            DB::table('fund_activity')->insert(['source'=>'fund_returns','source_id'=>$id,'user_id'=>$request->user()->id,'actor'=>$request->user()->name,'action'=>'created','before'=>null,'after'=>json_encode($data),'created_at'=>now()]);
+        });
+        return redirect()->route('funds-management.index',['month'=>substr($data['return_date'],0,7)])->with('success','Cash return recorded. Remaining balance updated.');
     }
     private function receiptData(Request $request, bool $editing=false): array
     {
