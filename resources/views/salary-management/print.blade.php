@@ -290,7 +290,6 @@ $payDate=!empty($r->payment_date)?\Illuminate\Support\Carbon::parse($r->payment_
 
 </tr></tbody></table>
 
-<p style="font-size:9px;margin:3mm 0">Daily rate: Rs {{ number_format($dailyRate,2) }} = monthly salary ÷ 30. Earned salary = daily rate × {{ $elapsedDays }} salary days. Statement through {{ $periodEnd->format('d/m/Y') }}. Negative balance means payments / deductions exceed salary earned so far. Attendance and OT use entered totals.</p>
 @if($attendanceWarning)
 <p style="font-size:10px;color:#b00020">Check attendance: entered absent days exceed elapsed days. Correct attendance before using this slip.</p>
 @endif
