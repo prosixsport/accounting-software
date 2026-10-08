@@ -189,9 +189,23 @@ $initial=mb_strtoupper(mb_substr(trim($e->name??'?'),0,1));
 
 @php
 
-$gross=round((float)$r->salary+$f['ot'],2);
+$today=now('Asia/Karachi')->startOfDay();
+$periodEnd=$month->copy()->endOfMonth()->startOfDay()->min($today);
+$elapsedDays=$month->greaterThan($today)?0:($month->isSameMonth($today)?$today->day:$month->daysInMonth);
+$presentDays=max(0,$elapsedDays-(int)$r->absent_days);
+$attendanceWarning=(int)$r->absent_days>$elapsedDays;
+// Monthly attendance and overtime inputs must contain actual totals through this date.
+$earnedBeforeAbsence=round((float)$r->salary*$elapsedDays/$month->daysInMonth,2);
+$actualAdvances=$r->advances->filter(fn($a)=>$a->advance_date->toDateString()<=$periodEnd->toDateString());
+$f['advance']=round((float)$actualAdvances->sum('amount'),2);
+$gross=round($earnedBeforeAbsence+$f['ot'],2);
 
 $deductions=round($f['absence']+$f['advance']+(float)$r->loan_deduction+(float)$r->other_deduction,2);
+$asOfNet=round($gross-$deductions,2);
+$asOfPaid=(float)$r->paid_amount;
+if(!empty($r->payment_date) && \Illuminate\Support\Carbon::parse($r->payment_date)->greaterThan($periodEnd)) $asOfPaid=0;
+$asOfDue=round($asOfNet+(float)$r->overdue-$asOfPaid,2);
+
 
 $payDate=!empty($r->payment_date)?\Illuminate\Support\Carbon::parse($r->payment_date)->format('d/m/Y'):'Unpaid';
 
@@ -225,13 +239,13 @@ $payDate=!empty($r->payment_date)?\Illuminate\Support\Carbon::parse($r->payment_
 
 </div>
 
-<div class="ref-dates"><div><span>Period End</span><strong>{{ $month->copy()->endOfMonth()->format('d/m/Y') }}</strong></div><div><span>Print Date</span><strong class="current-print-date">{{ now('Asia/Karachi')->format('d/m/Y') }}</strong></div><div><span>Month</span><strong>{{ $month->format('F Y') }}</strong></div><div><span>Pay Date</span><strong>{{ $payDate }}</strong></div><div><span>Department</span><strong>{{ $e->department ?? '-' }}</strong></div></div>
+<div class="ref-dates"><div><span>Period End</span><strong>{{ $periodEnd->format('d/m/Y') }}</strong></div><div><span>Print Date</span><strong class="current-print-date">{{ now('Asia/Karachi')->format('d/m/Y') }}</strong></div><div><span>Month</span><strong>{{ $month->format('F Y') }}</strong></div><div><span>Pay Date</span><strong>{{ $payDate }}</strong></div><div><span>Department</span><strong>{{ $e->department ?? '-' }}</strong></div></div>
 
-<table class="ref-table"><thead><tr><th>Working Days</th><th>Present</th><th>Absent</th><th>OT Hours</th><th>OT Rate / Hour</th></tr></thead><tbody><tr><td>{{ $month->daysInMonth }}</td><td>{{ max(0,$month->daysInMonth-(int)$r->absent_days) }}</td><td>{{ (int)$r->absent_days }}</td><td>{{ (int)$r->ot_hours }}</td><td>Rs {{ number_format($r->ot_rate,2) }}</td></tr></tbody></table>
+<table class="ref-table"><thead><tr><th>Days Elapsed</th><th>Present</th><th>Absent</th><th>OT Hours</th><th>OT Rate / Hour</th></tr></thead><tbody><tr><td>{{ $elapsedDays }}</td><td>{{ $presentDays }}</td><td>{{ (int)$r->absent_days }}</td><td>{{ (int)$r->ot_hours }}</td><td>Rs {{ number_format($r->ot_rate,2) }}</td></tr></tbody></table>
 
 <table class="ref-earnings"><thead><tr><th>Earnings / Deductions</th><th>Amount</th></tr></thead><tbody>
 
-@foreach(['Basic Salary'=>$r->salary,'Overtime'=>$f['ot'],'Absent Deduction'=>$f['absence'],'Weekly Advances (All Weeks)'=>$f['advance'],'Loan Installment'=>$r->loan_deduction,'Other Deduction'=>$r->other_deduction] as $label=>$amount)
+@foreach(['Monthly Basic Salary (Reference)'=>$r->salary,'Salary Earned Through Period End'=>$earnedBeforeAbsence,'Overtime'=>$f['ot'],'Absent Deduction'=>$f['absence'],'Advances Through Period End'=>$f['advance'],'Loan Installment'=>$r->loan_deduction,'Other Deduction'=>$r->other_deduction] as $label=>$amount)
 
 <tr><th>{{ $label }}</th><td>Rs {{ number_format($amount,2) }}</td></tr>
 
@@ -241,7 +255,7 @@ $payDate=!empty($r->payment_date)?\Illuminate\Support\Carbon::parse($r->payment_
 
 <div class="ref-totals"><table>
 
-@foreach(['Total Earnings'=>$gross,'Total Deduction'=>$deductions,'Previous Salary Due'=>$r->overdue,'Final Payable Salary'=>$f['net']+$r->overdue,'Salary Paid'=>$r->paid_amount,'Remaining Amount'=>$f['due']] as $label=>$amount)
+@foreach(['Total Earnings'=>$gross,'Total Deduction'=>$deductions,'Previous Salary Due'=>$r->overdue,'Payable Through Period End'=>$asOfNet+$r->overdue,'Salary Paid'=>$asOfPaid,'Balance Through Period End'=>$asOfDue] as $label=>$amount)
 
 <tr><th>{{ $label }}</th><td>Rs {{ number_format($amount,2) }}</td></tr>
 
@@ -263,12 +277,16 @@ $payDate=!empty($r->payment_date)?\Illuminate\Support\Carbon::parse($r->payment_
 
 @for($w=$weekStart;$w<=min($weekEnd,(int)ceil($month->daysInMonth/7));$w++)
 
-<td>Rs {{ number_format($r->advances->filter(fn($a)=>(int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1))===$w)->sum('amount'),2) }}</td>
+<td>Rs {{ number_format($actualAdvances->filter(fn($a)=>(int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1))===$w)->sum('amount'),2) }}</td>
 
 @endfor
 
 </tr></tbody></table>
 
+<p style="font-size:9px;margin:3mm 0">Interim statement through {{ $periodEnd->format('d/m/Y') }}. Negative balance means payments / deductions exceed salary earned so far. Attendance and OT use entered totals.</p>
+@if($attendanceWarning)
+<p style="font-size:10px;color:#b00020">Check attendance: entered absent days exceed elapsed days. Correct attendance before using this slip.</p>
+@endif
 <div class="ref-sign"><span>Employee Signature __________</span><span>Authorized Signature __________</span></div>
 
 </section>
