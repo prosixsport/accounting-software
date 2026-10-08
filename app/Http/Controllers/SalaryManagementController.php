@@ -62,21 +62,29 @@ class SalaryManagementController extends Controller {
  }
  public function paymentStatus(Request $request) {
   $month=$this->month($request);
-  $data=$request->validate(['employee_id'=>['required','integer',Rule::exists('employees','id')],'payment_status'=>['required',Rule::in(['paid','unpaid'])]]);
-  DB::transaction(function() use($data,$month) {
-   $row=SalaryManagementRow::where('employee_id',$data['employee_id'])->whereDate('month',$month->toDateString())->lockForUpdate()->firstOrFail();
-   $row->load('advances');
-   $amount=round($row->figures()['net']+(float)$row->overdue,2);
-   if($data['payment_status']==='paid' && $amount<=0) throw \Illuminate\Validation\ValidationException::withMessages(['payment_status'=>'No positive salary balance is payable.']);
-   if($data['payment_status']==='paid') {
-    if(round((float)$row->paid_amount,2)!==$amount) {
-     $row->paid_amount=$amount;
-     $row->payment_date=now('Asia/Karachi')->toDateString();
-    }
-   } else { $row->paid_amount=0; $row->payment_date=null; }
-   $row->save();
+  $data=$request->validate([
+   'employee_id'=>['required_without:employee_ids','nullable','integer',Rule::exists('employees','id')],
+   'employee_ids'=>['required_without:employee_id','array','min:1','max:1000'],
+   'employee_ids.*'=>['required','integer','distinct',Rule::exists('employees','id')],
+   'payment_status'=>['required',Rule::in(['paid','unpaid'])]
+  ]);
+  $ids=$data['employee_ids']??[$data['employee_id']];
+  [$updated,$skipped]=DB::transaction(function() use($data,$month,$ids) {
+   $rows=SalaryManagementRow::whereIn('employee_id',$ids)->whereDate('month',$month->toDateString())->orderBy('id')->lockForUpdate()->get();
+   if($rows->count()!==count($ids)) throw \Illuminate\Validation\ValidationException::withMessages(['employee_ids'=>'Only saved salary records from this month can be updated.']);
+   $updated=0;$skipped=0;
+   foreach($rows as $row) {
+    $row->load('advances');
+    $amount=round($row->figures()['net']+(float)$row->overdue,2);
+    if($data['payment_status']==='paid' && $amount<=0){$skipped++;continue;}
+    if($data['payment_status']==='paid') {
+     if(round((float)$row->paid_amount,2)!==$amount){$row->paid_amount=$amount;$row->payment_date=now('Asia/Karachi')->toDateString();}
+    } else {$row->paid_amount=0;$row->payment_date=null;}
+    $row->save();$updated++;
+   }
+   return [$updated,$skipped];
   });
-  return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success',$data['payment_status']==='paid'?'Salary marked Paid.':'Salary marked Unpaid.');
+  return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success',$updated.' salary record(s) marked '.ucfirst($data['payment_status']).'.'.($skipped?' '.$skipped.' skipped: no positive salary payable.':''));
  }
  public function advance(Request $request) {
   $month=$this->month($request);

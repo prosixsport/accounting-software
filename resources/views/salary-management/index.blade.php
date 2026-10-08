@@ -181,8 +181,10 @@
 
                 <input type="hidden" name="week" id="sm-print-week-count" value="0"><input type="hidden" id="salary-print-mode" name="mode" value="slips">
                 <button type="submit" id="salary-print-selected" class="sm-btn sm-btn-primary" disabled>Print Selected (0)</button>
+<button type="button" class="sm-btn" data-bulk-status="paid" disabled>Mark Selected Paid</button>
+<button type="button" class="sm-btn" data-bulk-status="unpaid" disabled>Mark Selected Unpaid</button>
             </div>
-            <p class="sm-hint mb-0 mt-2">Select saved workers and a week above, then press Print Selected for a weekly sheet.</p>
+            <p class="sm-hint mb-0 mt-2">Select saved workers to print individual slips or update their payment status.</p>
         </form>
         <div class="sm-list-title"><strong>Employee Directory</strong><small id="salary-count" aria-live="polite">{{ $employees->count() }} employees</small></div>
 
@@ -305,7 +307,7 @@
 
                     <td><div class="sm-row-actions">
 
-                        @if($row)<button type="button" class="sm-btn sm-btn-small" data-open-employee="{{ $employee->id }}" data-open-tab="salary" aria-controls="salary-editor-{{ $employee->id }}">Edit Details</button>
+                        @if($row)<button type="button" class="sm-btn sm-btn-small" data-edit-salary="{{ $employee->id }}" aria-controls="salary-editor-{{ $employee->id }}">Edit Details</button>
 
                         <button type="button" class="sm-btn sm-btn-small" data-open-employee="{{ $employee->id }}" data-open-tab="advances" aria-controls="salary-editor-{{ $employee->id }}">Advance</button>@else<span class="sm-hint">—</span>@endif
 
@@ -548,6 +550,7 @@
         selectAll.checked = available.length > 0 && selected === available.length;
         selectAll.indeterminate = selected > 0 && selected < available.length;
         printButton.disabled = selected === 0;
+        root.querySelectorAll('[data-bulk-status]').forEach(button=>button.disabled=selected===0);
         printButton.textContent = 'Print Selected (' + selected + ')';
     }
     selectAll.addEventListener('change', function () {
@@ -735,7 +738,7 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  const dialog=document.getElementById('sm-batch-dialog'), form=document.getElementById('sm-batch-form');
  const dept=document.getElementById('sm-entry-dept'), select=document.getElementById('sm-entry-worker'), fields=document.getElementById('sm-entry-fields'), message=document.getElementById('sm-batch-message');
  let dateDefault=form.elements.salary_date.value; const days=30;
- let changed=false, saving=false;
+ let changed=false, saving=false, editing=false;
  const num=n=>Number(form.elements.namedItem(n).value)||0, round=n=>Math.round((n+Number.EPSILON)*100)/100;
  const money=n=>'Rs '+n.toLocaleString('en-PK',{minimumFractionDigits:2,maximumFractionDigits:2});
  function renderLedger(w){
@@ -803,7 +806,8 @@ $entryWorkers=$employees->map(function($e) use($rows) {
 }
 form.elements.entry_advance_date.addEventListener('change',syncWeek);
 form.elements.salary_date.addEventListener('change',()=>{dateDefault=form.elements.salary_date.value;form.elements.entry_advance_date.value=dateDefault;syncWeek();});
-document.getElementById('sm-add-salary').addEventListener('click',()=>{document.getElementById('sm-dept-complete').hidden=true;options();dialog.showModal();});
+document.addEventListener('click',event=>{const button=event.target.closest('[data-edit-salary]');if(!button)return;const worker=workers.find(w=>String(w.id)===button.dataset.editSalary);if(!worker)return;editing=true;dept.value=worker.department;options();select.value=String(worker.id);load();message.hidden=true;document.getElementById('sm-dept-complete').hidden=true;dialog.querySelector('h4').textContent='Edit Salary — '+worker.name;document.getElementById('sm-entry-save').textContent='Save Changes';dialog.showModal();});
+ document.getElementById('sm-add-salary').addEventListener('click',()=>{editing=false;dialog.querySelector('h4').textContent='Add Salary';document.getElementById('sm-entry-save').textContent='Save & Next Worker';document.getElementById('sm-dept-complete').hidden=true;options();dialog.showModal();});
  document.getElementById('sm-batch-close').addEventListener('click',()=>{if(!saving)dialog.close();});
  dialog.addEventListener('cancel',e=>{if(saving)e.preventDefault();});
  dialog.addEventListener('close',()=>{if(changed)window.location.reload();});
@@ -817,10 +821,11 @@ document.getElementById('sm-add-salary').addEventListener('click',()=>{document.
    const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
    const data=await response.json();if(!response.ok)throw new Error(data.errors?Object.values(data.errors).flat().join(' '):(data.message||'Unable to save.'));
    w.saved=true;w.data=data.row;w.advance=data.advance;w.ledger=data.ledger||[];changed=true;document.dispatchEvent(new Event('salary-record-saved'));
+   if(editing){load();message.hidden=false;message.className='alert alert-success';message.textContent=w.name+' salary updated.';return;}
    const name=w.name, keptDepartment=dept.value, keptDate=form.elements.salary_date.value;dateDefault=keptDate;fields.disabled=false;form.reset();dept.value=keptDepartment;form.elements.salary_date.value=keptDate;fields.disabled=true;select.value='';options();renderLedger(w);document.getElementById('sm-extra-details').open=false;document.getElementById('sm-entry-preview').replaceChildren();
    message.hidden=false;message.className='alert alert-success';message.textContent=name+' salary saved.';pickNext();
   }catch(error){message.hidden=false;message.className='alert alert-danger';message.textContent=error.message;}
-  finally{saving=false;button.disabled=!select.value;button.textContent='Save & Next Worker';}
+  finally{saving=false;button.disabled=!select.value;button.textContent=editing?'Save Changes':'Save & Next Worker';}
  });
 })();
 </script>
@@ -904,7 +909,7 @@ document.getElementById('sm-add-salary').addEventListener('click',()=>{document.
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
  try{
   const key='salary-view-'+{{ \Illuminate\Support\Js::from($monthKey) }}, saved=JSON.parse(sessionStorage.getItem(key)||'null');sessionStorage.removeItem(key);
-  if(saved){document.getElementById('salary-search').value=saved.search||'';document.getElementById('salary-department').value=saved.department||'';document.getElementById('salary-status').value=saved.status||'';weeks.value=saved.weeks||'0';current=saved.current||null;
+  if(saved){requestAnimationFrame(()=>requestAnimationFrame(()=>{window.scrollTo(saved.scrollX||0,saved.scrollY||0);document.querySelectorAll('.sm-table-wrap,main').forEach((el,i)=>{if(saved.containers?.[i]){el.scrollTop=saved.containers[i].top;el.scrollLeft=saved.containers[i].left;}});}));document.getElementById('salary-search').value=saved.search||'';document.getElementById('salary-department').value=saved.department||'';document.getElementById('salary-status').value=saved.status||'';weeks.value=saved.weeks||'0';current=saved.current||null;
    weeks.dispatchEvent(new Event('change'));document.getElementById('salary-search').dispatchEvent(new Event('input'));
    document.querySelectorAll('.sm-print-check').forEach(b=>{b.checked=!b.disabled&&(saved.selected||[]).includes(b.value);});const first=document.querySelector('.sm-print-check');if(first)first.dispatchEvent(new Event('change'));
   }
@@ -915,6 +920,29 @@ document.getElementById('sm-add-salary').addEventListener('click',()=>{document.
 .sm-stat{text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;width:100%;color:#17232b}.sm-stat:hover,.sm-stat[aria-expanded="true"]{border-color:#137466;box-shadow:0 3px 12px #13746614}.sm-stat:focus-visible{outline:3px solid #aad7cf;outline-offset:2px}
 #sm-summary-panel th{color:#64748b;font-size:12px}#sm-summary-panel td{font-size:13px;padding:9px 6px}#sm-summary-panel tfoot{font-weight:700;border-top:2px solid #dce3e8}
 </style>
+
+
+<script>
+(function(){
+ const key='salary-view-'+{{ \Illuminate\Support\Js::from($monthKey) }};
+ function savePosition(){try{
+  const value=id=>document.getElementById(id)?.value||'';
+  sessionStorage.setItem(key,JSON.stringify({search:value('salary-search'),department:value('salary-department'),status:value('salary-status'),weeks:value('sm-weeks-show'),mode:value('salary-print-mode'),selected:Array.from(document.querySelectorAll('.sm-print-check:checked')).map(b=>b.value),scrollY:window.scrollY,scrollX:window.scrollX,containers:Array.from(document.querySelectorAll('.sm-table-wrap,main')).map(el=>({top:el.scrollTop,left:el.scrollLeft}))}));
+ }catch(e){}}
+ window.addEventListener('beforeunload',savePosition);
+ document.addEventListener('submit',savePosition,true);
+ document.querySelectorAll('[data-bulk-status]').forEach(button=>button.addEventListener('click',()=>{
+  const ids=Array.from(document.querySelectorAll('.sm-print-check:checked')).filter(b=>!b.disabled&&!b.closest('tr').hidden).map(b=>b.value);if(!ids.length)return;
+  const paid=button.dataset.bulkStatus==='paid';
+  if(!confirm(paid?'Confirm these '+ids.length+' workers received their final salary?':'Mark these '+ids.length+' workers Unpaid and reverse recorded final payments?'))return;
+  const form=document.createElement('form');form.method='post';form.action={{ \Illuminate\Support\Js::from(route('salary-management.payment-status')) }};
+  const fields={_token:{{ \Illuminate\Support\Js::from(csrf_token()) }},_method:'PATCH',month:{{ \Illuminate\Support\Js::from($monthKey) }},payment_status:button.dataset.bulkStatus};
+  for(const [name,value] of Object.entries(fields)){const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);}
+  ids.forEach(id=>{const input=document.createElement('input');input.type='hidden';input.name='employee_ids[]';input.value=id;form.appendChild(input);});
+  savePosition();document.body.appendChild(form);form.submit();
+ }));
+})();
+</script>
 
 @endsection
 
