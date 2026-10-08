@@ -89,7 +89,7 @@ body{font-family:Arial,sans-serif;color:#111;margin:24px}h1{font-size:21px;text-
 @page{size:A4 portrait;margin:8mm}
 .slip-pair{width:194mm;max-width:100%;margin:0 auto 20px;display:block;break-after:page}
 .slip-pair:last-of-type{break-after:auto}
-.salary-slip{width:100%;min-height:280mm;height:auto;box-sizing:border-box;margin:0;box-shadow:none;break-after:auto}
+.salary-slip{width:100%;min-height:0;height:auto;box-sizing:border-box;margin:0;box-shadow:none;break-after:auto}
 @media print{.slip-pair{width:100%;margin:0;break-after:page}.slip-pair:last-of-type{break-after:auto}.salary-slip{break-after:auto!important}}
 @endif
 
@@ -116,13 +116,34 @@ body{font-family:Arial,sans-serif;color:#111;margin:24px}h1{font-size:21px;text-
 
 
 /* Full-page spacing and readable type. */
-.reference-slip{padding:8mm!important;min-height:280mm;overflow:visible;font-size:12px;display:flex;flex-direction:column}
+.reference-slip{padding:8mm!important;min-height:0;overflow:visible;font-size:12px;display:flex;flex-direction:column}
 .ref-header{height:25mm;padding-bottom:4mm;gap:5mm;flex-shrink:0}
 .ref-logos img{max-height:20mm}.ref-p-logo{width:24mm}.ref-brand{width:58mm}.ref-logos{gap:5mm}.ref-company{font-size:10px;line-height:1.4}
 .ref-person{min-height:43mm;padding:5mm 0;gap:5mm;flex-shrink:0}.ref-photo{width:29mm;height:34mm}.ref-details{font-size:12px;width:66%}.ref-details strong{width:27mm}.ref-details>div{margin-bottom:3mm}.ref-watermark{font-size:38px;top:14mm}
 .ref-dates{font-size:11px;margin:3mm 0;column-gap:20mm}.ref-dates>div{padding:2mm 0}
 .reference-slip table{font-size:11px}.reference-slip th,.reference-slip td{padding:2.2mm 1.5mm!important;line-height:1.3}.ref-totals{width:57%;margin:4mm 0 5mm auto}.ref-weeks{margin-top:5mm}.ref-sign{font-size:11px;margin-top:auto;padding-top:14mm;padding-bottom:3mm}
-@media print{.reference-slip{min-height:280mm}.ref-header,.ref-person,.ref-dates,.ref-totals,.ref-sign{break-inside:avoid}}
+@media print{.reference-slip{min-height:0}.ref-header,.ref-person,.ref-dates,.ref-totals,.ref-sign{break-inside:avoid}}
+
+
+/* Fit one complete slip within the A4 printable area. */
+@if($single)
+@page{size:A4 portrait;margin:8mm}
+.slip-pair{width:194mm;max-width:100%;display:block;break-after:page}
+.reference-slip{height:276mm;min-height:0!important;max-width:100%;padding:6mm!important;box-sizing:border-box;overflow:visible;break-inside:avoid;page-break-inside:avoid}
+.ref-header{height:22mm;flex-shrink:0;padding-bottom:3mm}
+.ref-person{min-height:0;height:39mm;padding:3mm 0;flex-shrink:0}
+.ref-photo{width:27mm;height:32mm}.ref-details{font-size:11px}.ref-details>div{margin-bottom:2mm}
+.ref-dates{font-size:10px;margin:2mm 0}.ref-dates>div{padding:1.5mm 0}
+.reference-slip table{font-size:10.5px;flex-shrink:0}.reference-slip th,.reference-slip td{padding:1.6mm 1.5mm!important;line-height:1.2}
+.ref-totals{margin:3mm 0 4mm auto;flex-shrink:0}.ref-weeks{margin-top:4mm}
+.ref-sign{margin-top:auto;padding-top:8mm;padding-bottom:0;font-size:10px;flex-shrink:0}
+@media print{
+ html,body{margin:0!important;padding:0!important}
+ .slip-pair{width:194mm;margin:0!important;break-after:page;page-break-after:always}
+ .slip-pair:last-of-type{break-after:auto;page-break-after:auto}
+ .reference-slip{height:276mm;min-height:0!important;margin:0!important;break-after:auto!important;page-break-after:auto!important}
+}
+@endif
 
 </style></head><body><div class="toolbar"><button onclick="window.print()">Print / Save PDF</button> <a href="{{ route('salary-management.index',['month'=>$month->format('Y-m')]) }}">Back to Salary Management</a></div>
 
