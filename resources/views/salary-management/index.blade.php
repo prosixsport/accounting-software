@@ -179,7 +179,7 @@
             <input type="hidden" name="scope" value="selected">
             <div class="sm-actions">
 
-                <input type="hidden" name="week" id="sm-print-week-count" value="0"><input type="hidden" id="salary-print-mode" name="mode" value="weeks">
+                <input type="hidden" name="week" id="sm-print-week-count" value="0"><input type="hidden" id="salary-print-mode" name="mode" value="slips">
                 <button type="submit" id="salary-print-selected" class="sm-btn sm-btn-primary" disabled>Print Selected (0)</button>
             </div>
             <p class="sm-hint mb-0 mt-2">Select saved workers and a week above, then press Print Selected for a weekly sheet.</p>
@@ -399,7 +399,7 @@
 
                 <div class="sm-editor-body">
 
-                    <form method="post" action="{{ route('salary-management.save') }}" class="sm-salary-form" data-month-days="{{ $month->daysInMonth }}" data-advance-total="{{ $figures['advance'] }}">
+                    <form method="post" action="{{ route('salary-management.save') }}" class="sm-salary-form" data-month-days="30" data-advance-total="{{ $figures['advance'] }}">
 
                         @csrf
 
@@ -414,7 +414,7 @@
 
                                     @php
 
-                                        $default = $field === 'salary' ? ($employee->basic_salary ?? 0) : ($field === 'day_rate' ? round(($employee->basic_salary ?? 0)/$month->daysInMonth, 2) : 0);
+                                        $default = $field === 'salary' ? ($employee->basic_salary ?? 0) : ($field === 'day_rate' ? round(($employee->basic_salary ?? 0)/30, 2) : 0);
 
                                         $value = $row ? $row->{$field} : $default;
 
@@ -422,7 +422,7 @@
 
                                     @endphp
 
-                                    <div><label class="sm-label" for="sm-{{ $employee->id }}-{{ $field }}">{{ $label }}</label><input class="sm-control" id="sm-{{ $employee->id }}-{{ $field }}" type="number" name="{{ $field }}" min="0" max="{{ $field === 'absent_days' ? $month->daysInMonth : '9999999999.99' }}" step="{{ in_array($field,['absent_days','ot_hours']) ? '1' : '0.01' }}" value="{{ $value }}" @if(in_array($field,['day_rate','ot_rate'])) readonly aria-readonly="true" @endif required>
+                                    <div><label class="sm-label" for="sm-{{ $employee->id }}-{{ $field }}">{{ $label }}</label><input class="sm-control" id="sm-{{ $employee->id }}-{{ $field }}" type="number" name="{{ $field }}" min="0" max="{{ $field === 'absent_days' ? 30 : '9999999999.99' }}" step="{{ in_array($field,['absent_days','ot_hours']) ? '1' : '0.01' }}" value="{{ $value }}" @if(in_array($field,['day_rate','ot_rate'])) readonly aria-readonly="true" @endif required>
 
                                         @if($field === 'loan_balance')<div class="sm-hint">Information only. Deduct the monthly loan installment separately.</div>@endif
 
@@ -712,7 +712,7 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  <label class="sm-label">Salary Date</label><input class="sm-control mb-3" name="salary_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}" value="{{ $month->isSameMonth(now()) ? now()->toDateString() : $month->toDateString() }}" required>
  <h5>Salary & Attendance</h5><div class="row g-3">
  @foreach(['salary'=>'Monthly Salary','absent_days'=>'Absent Days','ot_hours'=>'Overtime Hours','working_hours_per_day'=>'Working Hours Per Day'] as $field=>$label)
- <div class="col-md-3"><label class="sm-label">{{ $label }}</label><input class="sm-control" type="number" name="{{ $field }}" min="{{ $field==='working_hours_per_day'?1:0 }}" max="{{ $field==='absent_days'?$month->daysInMonth:($field==='working_hours_per_day'?24:'9999999999.99') }}" step="{{ $field==='salary'?'0.01':1 }}" value="{{ $field==='working_hours_per_day'?8:0 }}" required></div>
+ <div class="col-md-3"><label class="sm-label">{{ $label }}</label><input class="sm-control" type="number" name="{{ $field }}" min="{{ $field==='working_hours_per_day'?1:0 }}" max="{{ $field==='absent_days'?30:($field==='working_hours_per_day'?24:'9999999999.99') }}" step="{{ $field==='salary'?'0.01':1 }}" value="{{ $field==='working_hours_per_day'?8:0 }}" required></div>
  @endforeach
  <input type="hidden" name="day_rate" value="0"><input type="hidden" name="ot_rate" value="0">
  </div><p class="sm-hint mt-2" id="sm-entry-rates">Daily and hourly rates calculate automatically.</p>
@@ -734,7 +734,7 @@ $entryWorkers=$employees->map(function($e) use($rows) {
  const workers={{ \Illuminate\Support\Js::from($entryWorkers) }};
  const dialog=document.getElementById('sm-batch-dialog'), form=document.getElementById('sm-batch-form');
  const dept=document.getElementById('sm-entry-dept'), select=document.getElementById('sm-entry-worker'), fields=document.getElementById('sm-entry-fields'), message=document.getElementById('sm-batch-message');
- let dateDefault=form.elements.salary_date.value; const days={{ $month->daysInMonth }};
+ let dateDefault=form.elements.salary_date.value; const days=30;
  let changed=false, saving=false;
  const num=n=>Number(form.elements.namedItem(n).value)||0, round=n=>Math.round((n+Number.EPSILON)*100)/100;
  const money=n=>'Rs '+n.toLocaleString('en-PK',{minimumFractionDigits:2,maximumFractionDigits:2});

@@ -145,6 +145,11 @@ body{font-family:Arial,sans-serif;color:#111;margin:24px}h1{font-size:21px;text-
 }
 @endif
 
+
+/* Clear row separators on the individual A4 slip. */
+.reference-slip tbody th,.reference-slip tbody td{border-bottom:1px solid #bbb!important}
+.ref-earnings tbody tr:first-child th,.ref-earnings tbody tr:first-child td{background:#eef2f5!important;font-weight:bold}
+.ref-totals tr:last-child th,.ref-totals tr:last-child td{border-top:2px solid #333!important;border-bottom:2px solid #333!important}
 </style></head><body><div class="toolbar"><button onclick="window.print()">Print / Save PDF</button> <a href="{{ route('salary-management.index',['month'=>$month->format('Y-m')]) }}">Back to Salary Management</a></div>
 
 
@@ -191,11 +196,13 @@ $initial=mb_strtoupper(mb_substr(trim($e->name??'?'),0,1));
 
 $today=now('Asia/Karachi')->startOfDay();
 $periodEnd=$month->copy()->endOfMonth()->startOfDay()->min($today);
-$elapsedDays=$month->greaterThan($today)?0:($month->isSameMonth($today)?$today->day:$month->daysInMonth);
+$elapsedDays=$month->greaterThan($today)?0:($month->isSameMonth($today) && !$today->isLastOfMonth()?min(30,$today->day):30);
+$dailyRate=(float)$r->salary/30;
+$hourlyRate=$dailyRate/max(1,(float)($r->working_hours_per_day??8));
 $presentDays=max(0,$elapsedDays-(int)$r->absent_days);
 $attendanceWarning=(int)$r->absent_days>$elapsedDays;
 // Monthly attendance and overtime inputs must contain actual totals through this date.
-$earnedBeforeAbsence=round((float)$r->salary*$elapsedDays/$month->daysInMonth,2);
+$earnedBeforeAbsence=round((float)$r->salary*$elapsedDays/30,2);
 $actualAdvances=$r->advances->filter(fn($a)=>$a->advance_date->toDateString()<=$periodEnd->toDateString());
 $f['advance']=round((float)$actualAdvances->sum('amount'),2);
 $gross=round($earnedBeforeAbsence+$f['ot'],2);
@@ -241,11 +248,11 @@ $payDate=!empty($r->payment_date)?\Illuminate\Support\Carbon::parse($r->payment_
 
 <div class="ref-dates"><div><span>Period End</span><strong>{{ $periodEnd->format('d/m/Y') }}</strong></div><div><span>Print Date</span><strong class="current-print-date">{{ now('Asia/Karachi')->format('d/m/Y') }}</strong></div><div><span>Month</span><strong>{{ $month->format('F Y') }}</strong></div><div><span>Pay Date</span><strong>{{ $payDate }}</strong></div><div><span>Department</span><strong>{{ $e->department ?? '-' }}</strong></div></div>
 
-<table class="ref-table"><thead><tr><th>Days Elapsed</th><th>Present</th><th>Absent</th><th>OT Hours</th><th>OT Rate / Hour</th></tr></thead><tbody><tr><td>{{ $elapsedDays }}</td><td>{{ $presentDays }}</td><td>{{ (int)$r->absent_days }}</td><td>{{ (int)$r->ot_hours }}</td><td>Rs {{ number_format($r->ot_rate,2) }}</td></tr></tbody></table>
+<table class="ref-table"><thead><tr><th>Salary Days To Date / 30</th><th>Present</th><th>Absent</th><th>OT Hours</th><th>OT Rate / Hour</th></tr></thead><tbody><tr><td>{{ $elapsedDays }}</td><td>{{ $presentDays }}</td><td>{{ (int)$r->absent_days }}</td><td>{{ (int)$r->ot_hours }}</td><td>Rs {{ number_format($hourlyRate,2) }}</td></tr></tbody></table>
 
 <table class="ref-earnings"><thead><tr><th>Earnings / Deductions</th><th>Amount</th></tr></thead><tbody>
 
-@foreach(['Monthly Basic Salary (Reference)'=>$r->salary,'Salary Earned Through Period End'=>$earnedBeforeAbsence,'Overtime'=>$f['ot'],'Absent Deduction'=>$f['absence'],'Advances Through Period End'=>$f['advance'],'Loan Installment'=>$r->loan_deduction,'Other Deduction'=>$r->other_deduction] as $label=>$amount)
+@foreach(['Full Monthly Salary — 30 Days (Information)'=>$r->salary,'Salary Earned To Date (Before Deductions)'=>$earnedBeforeAbsence,'Overtime'=>$f['ot'],'Absent Deduction'=>$f['absence'],'Advances Through Period End'=>$f['advance'],'Loan Installment'=>$r->loan_deduction,'Other Deduction'=>$r->other_deduction] as $label=>$amount)
 
 <tr><th>{{ $label }}</th><td>Rs {{ number_format($amount,2) }}</td></tr>
 
@@ -283,7 +290,7 @@ $payDate=!empty($r->payment_date)?\Illuminate\Support\Carbon::parse($r->payment_
 
 </tr></tbody></table>
 
-<p style="font-size:9px;margin:3mm 0">Interim statement through {{ $periodEnd->format('d/m/Y') }}. Negative balance means payments / deductions exceed salary earned so far. Attendance and OT use entered totals.</p>
+<p style="font-size:9px;margin:3mm 0">Daily rate: Rs {{ number_format($dailyRate,2) }} = monthly salary ÷ 30. Earned salary = daily rate × {{ $elapsedDays }} salary days. Statement through {{ $periodEnd->format('d/m/Y') }}. Negative balance means payments / deductions exceed salary earned so far. Attendance and OT use entered totals.</p>
 @if($attendanceWarning)
 <p style="font-size:10px;color:#b00020">Check attendance: entered absent days exceed elapsed days. Correct attendance before using this slip.</p>
 @endif

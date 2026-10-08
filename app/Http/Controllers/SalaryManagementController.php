@@ -36,8 +36,8 @@ class SalaryManagementController extends Controller {
   $rules['working_hours_per_day']=['required','numeric','multiple_of:1','min:1','max:24'];
   $rules['absent_days'][]='multiple_of:1';
   $rules['ot_hours'][]='multiple_of:1';
-  $rules['ot_hours'][]='max:'.($month->daysInMonth*24);
-  $rules['absent_days'][]='max:'.$month->daysInMonth;
+  $rules['ot_hours'][]='max:'.(30*24);
+  $rules['absent_days'][]='max:30';
   $rules['salary_date']=['nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()];
   $rules['entry_advance_amount']=['nullable','numeric','min:0','max:9999999999.99'];
   $rules['entry_advance_week']=['nullable','integer','min:1','max:5'];
@@ -48,7 +48,7 @@ class SalaryManagementController extends Controller {
    throw \Illuminate\Validation\ValidationException::withMessages(['entry_advance_date'=>'Select advance date and week.']);
   }
   if(!empty($data['entry_advance_date'])) $data['entry_advance_week']=min(5,intdiv(Carbon::parse($data['entry_advance_date'])->day-1,7)+1);
-  $data['day_rate']=round($data['salary']/$month->daysInMonth,2);
+  $data['day_rate']=round($data['salary']/30,2);
   $data['ot_rate']=round($data['day_rate']/$data['working_hours_per_day'],2);
   $row=DB::transaction(function() use($data,$month) {
    $salaryData=$data;
@@ -84,7 +84,7 @@ class SalaryManagementController extends Controller {
   $data['advance_week']=min(5,intdiv(Carbon::parse($data['advance_date'])->day-1,7)+1);
   DB::transaction(function() use($data,$month) {
    $employee=Employee::findOrFail($data['employee_id']);
-   $row=SalaryManagementRow::firstOrCreate(['employee_id'=>$employee->id,'month'=>$month->toDateString()],['salary'=>$employee->basic_salary??0,'day_rate'=>round(($employee->basic_salary??0)/$month->daysInMonth,2)]);
+   $row=SalaryManagementRow::firstOrCreate(['employee_id'=>$employee->id,'month'=>$month->toDateString()],['salary'=>$employee->basic_salary??0,'day_rate'=>round(($employee->basic_salary??0)/30,2)]);
    $row->advances()->create(['advance_week'=>$data['advance_week'],'advance_date'=>$data['advance_date'],'amount'=>$data['amount'],'reason'=>$data['reason']??null]);
   });
   return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success','Advance added.')->with('active_employee',$data['employee_id'])->with('active_tab','advances');
