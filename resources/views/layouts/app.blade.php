@@ -607,7 +607,7 @@
     $salaryWorkerMenuOpen =
         request()->routeIs('employees.*')
         || request()->routeIs('payrolls.*')
-        || request()->routeIs('salary-management.*');
+        || request()->routeIs('salary-management.*') || request()->routeIs('loan-workers.*');
     $ownerFundsMenuOpen =
         request()->routeIs('funds-management.*');
 @endphp
@@ -826,6 +826,7 @@
                             </a>
                         @endif
                         @if($can('payrolls'))
+                            <a href="{{ route('loan-workers.index') }}" class="sub-link {{ request()->routeIs('loan-workers.*') ? 'active' : '' }}">Loan Workers</a>
                             <a href="{{ route('payrolls.index') }}"
                                class="sub-link {{ request()->routeIs('payrolls.*') ? 'active' : '' }}">
                                 Employees Payroll

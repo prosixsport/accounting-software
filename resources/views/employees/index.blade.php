@@ -1,6 +1,12 @@
 @extends('layouts.app')
 
 @section('content')
+<div class="d-flex gap-2 flex-wrap mb-3" role="group" aria-label="Employee status">
+@foreach(['all'=>'All','active'=>'Active','inactive'=>'Inactive'] as $key=>$label)
+<button type="button" class="btn btn-outline-dark employee-state-tab" data-state="{{ $key }}" aria-pressed="{{ $key==='active'?'true':'false' }}">{{ $label }} ({{ $key==='all'?$employees->count():$employees->where('status',$key)->count() }})</button>
+@endforeach
+</div>
+
 
 <div class="employees-page">
 
@@ -384,7 +390,7 @@
                             );
                         @endphp
 
-                        <tr class="employee-row"
+                        <tr class="employee-row" data-state="{{ $employee->status }}"
                             data-name="{{ $employeeName }}"
                             data-code="{{ $employeeCode }}"
                             data-department="{{ $employeeDepartment }}"
@@ -1409,7 +1415,11 @@ document.addEventListener('DOMContentLoaded', function () {
             : designationText;
     }
 
+    let employeeState='active';
+    try{employeeState=sessionStorage.getItem('employees-status-tab')||'active';}catch(e){}
+    document.querySelectorAll('.employee-state-tab').forEach(button=>button.addEventListener('click',()=>{employeeState=button.dataset.state;try{sessionStorage.setItem('employees-status-tab',employeeState);}catch(e){}filterEmployees();}));
     function filterEmployees() {
+        document.querySelectorAll('.employee-state-tab').forEach(button=>{const active=button.dataset.state===employeeState;button.setAttribute('aria-pressed',String(active));button.classList.toggle('btn-dark',active);button.classList.toggle('btn-outline-dark',!active);});
         const searchValue = normalize(searchInput.value);
 
         const selectedDepartment = normalize(
@@ -1454,6 +1464,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 designation === selectedDesignation;
 
             const shouldShow =
+                (employeeState==='all'||row.dataset.state===employeeState) &&
                 matchesSearch &&
                 matchesDepartment &&
                 matchesDesignation;
