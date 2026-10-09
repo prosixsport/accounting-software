@@ -217,6 +217,7 @@ $changed=array_filter($fields,fn($key)=>!in_array($key,['created_at','updated_at
 @endif
 <form method="post" action="{{ route('funds-management.returns.store') }}" class="row g-3">@csrf
 <input type="hidden" name="submission_key" value="{{ old('return_date') ? old('submission_key') : (string)\Illuminate\Support\Str::uuid() }}">
+<div class="col-12"><label class="form-label">Returned By — Person Name</label><input name="returned_by" class="form-control" maxlength="255" value="{{ old('returned_by',auth()->user()->name) }}" required></div>
 <div class="col-md-6"><label class="form-label">Return Date</label><input class="form-control" type="date" name="return_date" value="{{ old('return_date',now('Asia/Karachi')->toDateString()) }}" max="{{ now('Asia/Karachi')->toDateString() }}" required></div>
 <div class="col-md-6"><label class="form-label">Returned To</label><select name="boss" class="form-select" required>
 @foreach(['Boss Azeem','Boss Atif','Boss Kashif'] as $boss)

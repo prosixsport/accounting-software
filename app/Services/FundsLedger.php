@@ -35,8 +35,9 @@ class FundsLedger
             foreach (DB::table('salary_cash_entries')->get() as $r) $add('salary_cash_entries',$r->id,$r->entry_date,$r->type==='receipt'?'Legacy funds':'Legacy expense',$r->description,$r->amount,$r->type==='receipt','','cash');
         }
         foreach (DB::table('fund_receipts')->get() as $r) $add('fund_receipts',$r->id,$r->receipt_date,'Boss funds',$r->boss,$r->amount,true,$r->notes,$r->method);
-        if(Schema::hasTable('fund_returns')) foreach(DB::table('fund_returns')->get() as $r) $add('fund_returns',$r->id,$r->return_date,'Cash returned to boss',$r->boss,$r->amount,false,$r->notes,'cash');
+        if(Schema::hasTable('fund_returns')) foreach(DB::table('fund_returns')->get() as $r) $add('fund_returns',$r->id,$r->return_date,'Cash returned to boss',$r->boss,$r->amount,false,'Returned by: '.($r->returned_by??'Not recorded').($r->notes?' · '.$r->notes:''),'cash');
         $employees = DB::table('employees')->pluck('name','id');
+        if(Schema::hasTable('worker_loans'))foreach(DB::table('worker_loans')->get() as $r)$add('worker_loans',$r->id,$r->loan_date,'Worker loan issued',$employees[$r->employee_id]??null,$r->amount,false,'Given by: '.$r->given_by.($r->notes?' · '.$r->notes:''),'cash');
         foreach (DB::table('salary_management_advances')->join('salary_management_rows','salary_management_rows.id','=','salary_management_advances.salary_row_id')->select('salary_management_advances.*','salary_management_rows.employee_id')->get() as $r) $add('salary_management_advances',$r->id,$r->advance_date,'Salary advance',$employees[$r->employee_id]??null,$r->amount,false,$r->reason);
         foreach (DB::table('salary_management_rows')->where('paid_amount','>',0)->get() as $r) $add('salary_management_rows',$r->id,($r->payment_date ?? null) ?: ($r->salary_date ?: $r->month),'Salary paid',$employees[$r->employee_id]??null,$r->paid_amount,false,'Salary '.substr($r->month,0,7));
         foreach (DB::table('employee_advances')->get() as $r) $add('employee_advances',$r->id,$r->advance_date,'Payroll advance',$employees[$r->employee_id]??null,$r->amount,false,$r->remarks);

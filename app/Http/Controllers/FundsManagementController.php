@@ -41,7 +41,7 @@ class FundsManagementController extends Controller
     public function returnCash(Request $request)
     {
         abort_unless($request->user()->hasPermission('owner_funds'),403);
-        $data=$request->validate(['return_date'=>['required','date_format:Y-m-d','before_or_equal:today'],'boss'=>['required','in:Boss Azeem,Boss Atif,Boss Kashif'],'amount'=>['required','regex:/^\d{1,13}(\.\d{1,2})?$/','numeric','min:0.01'],'notes'=>['nullable','string','max:2000'],'submission_key'=>['required','uuid']]);
+        $data=$request->validate(['returned_by'=>['required','string','max:255'],'return_date'=>['required','date_format:Y-m-d','before_or_equal:today'],'boss'=>['required','in:Boss Azeem,Boss Atif,Boss Kashif'],'amount'=>['required','regex:/^\d{1,13}(\.\d{1,2})?$/','numeric','min:0.01'],'notes'=>['nullable','string','max:2000'],'submission_key'=>['required','uuid']]);
         DB::transaction(function() use($data,$request){
             // Serialize duplicate submissions against the current authenticated user.
             DB::table('users')->where('id',$request->user()->id)->lockForUpdate()->first();

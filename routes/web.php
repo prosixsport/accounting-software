@@ -186,6 +186,7 @@ Route::middleware('auth')->group(function () {
     | Employees
     |--------------------------------------------------------------------------
     */
+    Route::post('/loan-workers', [\App\Http\Controllers\LoanWorkerController::class, 'store'])->name('loan-workers.store');
     Route::get('/loan-workers', [\App\Http\Controllers\LoanWorkerController::class, 'index'])->name('loan-workers.index');
     Route::get('/loan-workers/{employee}', [\App\Http\Controllers\LoanWorkerController::class, 'show'])->name('loan-workers.show');
     Route::patch('/employees/{employee}/status', [EmployeeController::class, 'setStatus'])->name('employees.status');

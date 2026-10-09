@@ -696,11 +696,12 @@
 
 
 @php
-$entryWorkers=$employees->map(function($e) use($rows) {
+$entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  $r=$rows->get($e->id);
  $data=[];
  foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount','working_hours_per_day','salary_date','notes'] as $field) $data[$field]=$r?->{$field};
- return ['id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
+ $schedule=$loanSchedules->get($e->id);if($schedule['managed']){$data['loan_balance']=$schedule['loan_balance'];$data['loan_deduction']=$schedule['loan_deduction'];}
+ return ['managed_loan'=>$schedule['managed'],'id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
 })->values();
 @endphp
 <dialog id="sm-batch-dialog" class="salary-manager" style="width:min(960px,95vw);max-height:92vh;border:1px solid #ddd;border-radius:16px;padding:0;overflow:hidden">
@@ -797,6 +798,7 @@ $entryWorkers=$employees->map(function($e) use($rows) {
   const w=workers.find(w=>String(w.id)===select.value);fields.disabled=!w;document.getElementById('sm-entry-save').disabled=!w;if(!w)return;
   for(const [key,val] of Object.entries(w.data)){if(form.elements.namedItem(key))form.elements.namedItem(key).value=val??(key==='salary'?w.basic_salary:key==='working_hours_per_day'?8:key==='salary_date'?dateDefault:key==='notes'?'':0);}
   for(const key of ['absent_days','ot_hours','working_hours_per_day'])form.elements.namedItem(key).value=Number(form.elements.namedItem(key).value);
+  for(const key of ['loan_balance','loan_deduction'])form.elements.namedItem(key).readOnly=Boolean(w.managed_loan);
   renderLedger(w);document.getElementById('sm-extra-details').open=['loan_balance','loan_deduction','other_deduction','overdue','paid_amount'].some(k=>num(k)>0);
   form.elements.entry_advance_amount.value=0;form.elements.entry_advance_date.value=form.elements.salary_date.value;form.elements.entry_advance_reason.value='';syncWeek();preview();
  }
