@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class EmployeeController extends Controller
 {
@@ -67,8 +68,7 @@ class EmployeeController extends Controller
             'other_documents.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:8192',
         ]);
 
-        Employee::create([
-            'employee_code' => 'EMP-' . str_pad(Employee::count() + 1, 4, '0', STR_PAD_LEFT),
+        $attributes = [
             'name' => $request->name,
             'father_name' => $request->father_name,
             'phone' => $request->phone,
@@ -84,7 +84,27 @@ class EmployeeController extends Controller
             'pictures' => $this->uploadMultipleFiles($request->file('pictures'), 'employees/pictures'),
             'cnic_pictures' => $this->uploadMultipleFiles($request->file('cnic_pictures'), 'employees/cnic-pictures'),
             'other_documents' => $this->uploadMultipleFiles($request->file('other_documents'), 'employees/other-documents'),
-        ]);
+        ];
+        try {
+            DB::transaction(function () use ($attributes) {
+                $sequence = DB::table('employee_code_sequences')->where('id', 1)->lockForUpdate()->first();
+                if (!$sequence) throw new \RuntimeException('Employee code sequence is missing. Run the employee code migration.');
+                $number = (int) $sequence->next_number;
+                do {
+                    $code = 'EMP-' . str_pad((string) $number, 4, '0', STR_PAD_LEFT);
+                    $number++;
+                } while (Employee::where('employee_code', $code)->exists());
+                Employee::create(array_merge($attributes, ['employee_code' => $code]));
+                DB::table('employee_code_sequences')->where('id', 1)->update(['next_number' => $number]);
+            }, 3);
+        } catch (\Throwable $error) {
+            // Remove new uploads when the database transaction does not commit.
+            foreach (['pictures', 'cnic_pictures', 'other_documents'] as $field) {
+                foreach ($attributes[$field] as $path) Storage::disk('public')->delete($path);
+            }
+            throw $error;
+        }
+
 
         return redirect()
             ->route('employees.index')
