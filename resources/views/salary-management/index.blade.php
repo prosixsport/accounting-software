@@ -183,6 +183,7 @@
                 <button type="submit" id="salary-print-selected" class="sm-btn sm-btn-primary" disabled>Print Selected (0)</button>
 <button type="button" class="sm-btn" data-bulk-status="paid" disabled>Mark Selected Paid</button>
 <button type="button" class="sm-btn" data-bulk-status="unpaid" disabled>Mark Selected Unpaid</button>
+<button type="button" class="sm-btn" data-bulk-status="paid" data-date-only="1" disabled>Correct Selected Payment Dates</button>
             </div>
             <p class="sm-hint mb-0 mt-2">Select saved workers to print individual slips or update their payment status.</p>
         </form>
@@ -291,8 +292,8 @@
                     @endphp
                     <td><span class="sm-status {{ $paymentClass }}" title="Based on Final Salary Paid and Remaining Due">{{ $paymentLabel }}</span>
                     @if($row)
-                    <small class="sm-cell-secondary">Paid: Rs {{ number_format($row->paid_amount,2) }}</small>
-                    <form method="post" action="{{ route('salary-management.payment-status') }}" class="mt-1" onsubmit="return confirm(this.dataset.confirm)" data-confirm="{{ $paymentLabel==='Paid' ? 'Mark this salary Unpaid? This reverses the recorded final salary payment.' : 'Confirm final salary has been paid? The full payable balance will be recorded as paid.' }}">
+                    <small class="sm-cell-secondary">Paid: Rs {{ number_format($row->paid_amount,2) }}<br>Payment date: {{ $row->payment_date ? \Illuminate\Support\Carbon::parse($row->payment_date)->format('d M Y') : 'Not recorded' }}</small>
+                    <form method="post" action="{{ route('salary-management.payment-status') }}" class="mt-1 sm-payment-form" onsubmit="return this.elements.payment_status.value==='paid' || confirm(this.dataset.confirm)" data-confirm="{{ $paymentLabel==='Paid' ? 'Mark this salary Unpaid? This reverses the recorded final salary payment.' : 'Confirm final salary has been paid? The full payable balance will be recorded as paid.' }}">
                     @csrf
                     @method('PATCH')
                     <input type="hidden" name="month" value="{{ $monthKey }}">
@@ -300,6 +301,7 @@
                     <input type="hidden" name="payment_status" value="{{ $paymentLabel==='Paid' ? 'unpaid' : 'paid' }}">
                     <button class="sm-btn sm-btn-small" type="submit">{{ $paymentLabel==='Paid' ? 'Mark Unpaid' : 'Mark Paid' }}</button>
                     </form>
+                    @if((float)$row->paid_amount>0)<button type="button" class="sm-btn sm-btn-small mt-1" data-correct-payment="{{ $employee->id }}">Edit Payment Date</button>@endif
 
                     @endif
                     </td>
@@ -444,7 +446,8 @@
                         <p class="sm-hint mt-3">Last week: enter the salary amount actually paid in Final Salary Paid, then save. Advances are already deducted from the net salary.</p><button type="button" class="sm-btn" data-fill-final>Fill Full Final Salary</button>
                         <div class="sm-form-footer"><button class="sm-btn sm-btn-primary" type="submit"><i class="bi bi-check2-circle" aria-hidden="true"></i> Save Salary Details</button><small>Changes save when you press this button.</small></div>
 
-                    </form>
+                    <div class="mt-3"><label class="sm-label">Actual Salary Payment Date</label><input class="sm-control" type="date" name="payment_date" min="{{ $month->toDateString() }}" max="{{ now('Asia/Karachi')->toDateString() }}" value="{{ $row?->payment_date }}"></div>
+</form>
 
                     <aside class="sm-preview" aria-label="Salary calculation preview"><h5>Salary Preview</h5><div class="sm-preview-line"><span>Monthly Salary</span><b data-preview="salary">—</b></div><div class="sm-preview-line"><span>Overtime (+)</span><b data-preview="ot">—</b></div><div class="sm-preview-line"><span>Absents (−)</span><b data-preview="absence">—</b></div><div class="sm-preview-line"><span>Advances (−)</span><b data-preview="advance">—</b></div><div class="sm-preview-line"><span>Other & Loan (−)</span><b data-preview="deduction">—</b></div><div class="sm-preview-line sm-preview-total"><span>Net Pay</span><strong data-preview="net">—</strong></div><div class="sm-preview-line"><span>Previous Due (+)</span><b data-preview="overdue">—</b></div><div class="sm-preview-line"><span>Final Salary Paid (−)</span><b data-preview="paid">—</b></div><div class="sm-preview-line sm-preview-total"><span>Remaining Due</span><strong data-preview="due">—</strong></div><p class="sm-hint">Preview includes unsaved form entries. Save before printing.</p>@if($row)<a class="sm-btn w-100" target="_blank" rel="noopener" href="{{ route('salary-management.print', ['month'=>$monthKey, 'employee_id'=>$employee->id]) }}">Print Saved Slip</a>@endif</aside>
 
@@ -493,6 +496,30 @@
 
 </div>
 
+<dialog id="sm-payment-date-dialog" style="width:min(470px,94vw);border:0;border-radius:12px;padding:24px">
+<h4 id="sm-payment-date-title">Actual Payment Date</h4><p class="sm-hint">Choose the date workers actually received the salary. Funds deducts in that date's month. Entry time remains today in the audit.</p>
+<label class="sm-label" for="sm-actual-payment-date">Payment Date</label><input id="sm-actual-payment-date" class="sm-control" type="date" min="{{ $month->toDateString() }}" max="{{ now('Asia/Karachi')->toDateString() }}" required>
+<div class="sm-actions mt-3"><button type="button" id="sm-date-confirm" class="sm-btn sm-btn-primary">Confirm Date</button><button type="button" id="sm-date-cancel" class="sm-btn">Cancel</button></div></dialog>
+<script>
+window.chooseSalaryPaymentDate=function(title){return new Promise(resolve=>{
+ const dialog=document.getElementById('sm-payment-date-dialog'),input=document.getElementById('sm-actual-payment-date');document.getElementById('sm-payment-date-title').textContent=title;
+ input.value='';let answer=null;
+ document.getElementById('sm-date-confirm').onclick=()=>{if(input.reportValidity()){answer=input.value;dialog.close();}};
+ document.getElementById('sm-date-cancel').onclick=()=>dialog.close();dialog.addEventListener('close',()=>resolve(answer),{once:true});dialog.showModal();
+});};
+document.addEventListener('submit',async event=>{
+ const form=event.target;if(!form.matches('.sm-payment-form')||form.elements.payment_status.value!=='paid'||form.dataset.dateReady)return;
+ event.preventDefault();const date=await window.chooseSalaryPaymentDate('Confirm Salary Payment');if(!date)return;
+ const field=document.createElement('input');field.type='hidden';field.name='payment_date';field.value=date;form.appendChild(field);form.dataset.dateReady='1';form.requestSubmit();
+});
+document.addEventListener('click',async event=>{
+ const button=event.target.closest('[data-correct-payment]');if(!button)return;
+ const date=await window.chooseSalaryPaymentDate('Correct Payment Date');if(!date)return;
+ const source=button.parentElement.querySelector('.sm-payment-form'),form=source.cloneNode(true);form.removeAttribute('onsubmit');form.classList.remove('sm-payment-form');form.elements.payment_status.value='paid';
+ for(const [name,value] of [['date_only','1'],['payment_date',date]]){const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);}
+ form.hidden=true;document.body.appendChild(form);form.requestSubmit();
+});
+</script>
 <script>
 
 (function () {
@@ -699,7 +726,7 @@
 $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  $r=$rows->get($e->id);
  $data=[];
- foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount','working_hours_per_day','salary_date','notes'] as $field) $data[$field]=$r?->{$field};
+ foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount','working_hours_per_day','salary_date','payment_date','notes'] as $field) $data[$field]=$r?->{$field};
  $schedule=$loanSchedules->get($e->id);if($schedule['managed']){$data['loan_balance']=$schedule['loan_balance'];$data['loan_deduction']=$schedule['loan_deduction'];}
  return ['managed_loan'=>$schedule['managed'],'id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['id'=>$a->id,'date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
 })->values();
@@ -727,6 +754,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>Select week, date and amount, then click Add Advance to save for this worker. Current salary details are saved too. Week follows the payment date.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week" aria-label="Select advance week">@for($w=1;$w<=ceil($month->daysInMonth/7);$w++)<option value="{{ $w }}">Week {{ $w }} · {{ ($w-1)*7+1 }}–{{ min($w*7,$month->daysInMonth) }}</option>
 @endfor</select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div><div class="mt-3"><button type="button" id="sm-entry-add-advance" class="sm-btn sm-btn-primary">+ Add Advance</button><span class="sm-hint ms-2">Enter 0 if no advance was paid. Save and continue to the next week.</span></div></section>
  <section class="sm-section mt-3"><h5 id="sm-ledger-title">Saved Advance Record</h5><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Week</th><th>Amount</th><th>Reason</th><th>Actions</th></tr></thead><tbody id="sm-entry-ledger"></tbody></table></div><div class="sm-hint" id="sm-entry-week-totals"></div><p class="sm-hint">New advances appear here after saving. Each payment is deducted once.</p></section>
+ <label class="sm-label mt-3">Actual Salary Payment Date (only if Salary Paid is entered)</label><input class="sm-control" type="date" name="payment_date" min="{{ $month->toDateString() }}" max="{{ now('Asia/Karachi')->toDateString() }}">
  <div class="alert alert-info" id="sm-entry-preview" aria-live="polite"></div>
  </fieldset></form></div>
  <footer style="padding:14px 24px;background:white;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:12px"><span class="sm-hint" id="sm-entry-progress">Choose a department and worker.</span><button class="sm-btn sm-btn-primary" type="submit" form="sm-batch-form" id="sm-entry-save" disabled>Save & Next Worker</button></footer>
@@ -818,7 +846,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  }
  function load(){
   const w=workers.find(w=>String(w.id)===select.value);fields.disabled=!w;document.getElementById('sm-entry-save').disabled=!w;if(!w)return;
-  for(const [key,val] of Object.entries(w.data)){if(['month','employee_id','id'].includes(key))continue;if(form.elements.namedItem(key))form.elements.namedItem(key).value=val??(key==='salary'?w.basic_salary:key==='working_hours_per_day'?10:key==='salary_date'?dateDefault:key==='notes'?'':0);}
+  for(const [key,val] of Object.entries(w.data)){if(['month','employee_id','id'].includes(key))continue;if(form.elements.namedItem(key))form.elements.namedItem(key).value=val??(key==='salary'?w.basic_salary:key==='working_hours_per_day'?10:key==='salary_date'?dateDefault:['notes','payment_date'].includes(key)?'':0);}
   form.elements.month.value={{ \Illuminate\Support\Js::from($monthKey) }};
   for(const key of ['absent_days','ot_hours','working_hours_per_day'])form.elements.namedItem(key).value=Number(form.elements.namedItem(key).value);
   for(const key of ['loan_balance','loan_deduction'])form.elements.namedItem(key).readOnly=Boolean(w.managed_loan);
@@ -980,12 +1008,14 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
  }catch(e){}}
  window.addEventListener('beforeunload',savePosition);
  document.addEventListener('submit',savePosition,true);
- document.querySelectorAll('[data-bulk-status]').forEach(button=>button.addEventListener('click',()=>{
+ document.querySelectorAll('[data-bulk-status]').forEach(button=>button.addEventListener('click',async()=>{
   const ids=Array.from(document.querySelectorAll('.sm-print-check:checked')).filter(b=>!b.disabled&&!b.closest('tr').hidden).map(b=>b.value);if(!ids.length)return;
   const paid=button.dataset.bulkStatus==='paid';
-  if(!confirm(paid?'Confirm these '+ids.length+' workers received their final salary?':'Mark these '+ids.length+' workers Unpaid and reverse recorded final payments?'))return;
+  const dateOnly=button.dataset.dateOnly==='1';
+  const paymentDate=paid?await window.chooseSalaryPaymentDate(dateOnly?'Correct Payment Date':'Confirm Salary Payment'):null;if(paid&&!paymentDate)return;
+  if(!dateOnly&&!confirm(paid?'Confirm these '+ids.length+' workers received their final salary?':'Mark these '+ids.length+' workers Unpaid and reverse recorded final payments?'))return;
   const form=document.createElement('form');form.method='post';form.action={{ \Illuminate\Support\Js::from(route('salary-management.payment-status')) }};
-  const fields={_token:{{ \Illuminate\Support\Js::from(csrf_token()) }},_method:'PATCH',month:{{ \Illuminate\Support\Js::from($monthKey) }},payment_status:button.dataset.bulkStatus};
+  const fields={_token:{{ \Illuminate\Support\Js::from(csrf_token()) }},_method:'PATCH',month:{{ \Illuminate\Support\Js::from($monthKey) }},payment_status:button.dataset.bulkStatus,date_only:dateOnly?'1':'0'};if(paid)fields.payment_date=paymentDate;
   for(const [name,value] of Object.entries(fields)){const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);}
   ids.forEach(id=>{const input=document.createElement('input');input.type='hidden';input.name='employee_ids[]';input.value=id;form.appendChild(input);});
   savePosition();document.body.appendChild(form);form.submit();

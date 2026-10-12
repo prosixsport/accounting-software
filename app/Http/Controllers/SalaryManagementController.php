@@ -42,6 +42,7 @@ class SalaryManagementController extends Controller {
   $rules['ot_hours'][]='decimal:0,2';
   $rules['ot_hours'][]='max:'.(30*24);
   $rules['absent_days'][]='max:30';
+  $rules['payment_date']=['nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.now('Asia/Karachi')->toDateString()];
   $rules['salary_date']=['nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()];
   $rules['save_advance']=['nullable','boolean'];
   $rules['entry_advance_amount']=['nullable','numeric','min:0','max:9999999999.99'];
@@ -49,6 +50,8 @@ class SalaryManagementController extends Controller {
   $rules['entry_advance_date']=['nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()];
   $rules['entry_advance_reason']=['nullable','string','max:1000'];
   $data=$request->validate($rules);
+  if((float)$data['paid_amount']>0 && empty($data['payment_date']))throw \Illuminate\Validation\ValidationException::withMessages(['payment_date'=>'Choose the actual date salary was paid.']);
+  if((float)$data['paid_amount']<=0)$data['payment_date']=null;
   if ((($data['entry_advance_amount']??0)>0 || ($data['save_advance']??false)) && (empty($data['entry_advance_date']) || empty($data['entry_advance_week']))) {
    throw \Illuminate\Validation\ValidationException::withMessages(['entry_advance_date'=>'Select advance date and week.']);
   }
@@ -72,11 +75,14 @@ class SalaryManagementController extends Controller {
   return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success','Salary details saved.')->with('active_employee',$data['employee_id'])->with('active_tab','salary');
  }
  public function paymentStatus(Request $request) {
+  abort_unless($request->user()->hasPermission('payrolls'),403);
   $month=$this->month($request);
   $data=$request->validate([
    'employee_id'=>['required_without:employee_ids','nullable','integer',Rule::exists('employees','id')],
    'employee_ids'=>['required_without:employee_id','array','min:1','max:1000'],
    'employee_ids.*'=>['required','integer','distinct',Rule::exists('employees','id')],
+   'date_only'=>['nullable','boolean'],
+   'payment_date'=>['required_if:payment_status,paid','nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.now('Asia/Karachi')->toDateString()],
    'payment_status'=>['required',Rule::in(['paid','unpaid'])]
   ]);
   $ids=$data['employee_ids']??[$data['employee_id']];
@@ -86,17 +92,18 @@ class SalaryManagementController extends Controller {
    if($rows->count()!==count($ids)) throw \Illuminate\Validation\ValidationException::withMessages(['employee_ids'=>'Only saved salary records from this month can be updated.']);
    $updated=0;$skipped=0;
    foreach($rows as $row) {
+    if($data['date_only']??false){if((float)$row->paid_amount<=0)throw \Illuminate\Validation\ValidationException::withMessages(['payment_date'=>'Date correction requires a recorded payment for every selected worker.']);$row->payment_date=$data['payment_date'];$row->save();$updated++;continue;}
     $row->load('advances');
     $amount=round($row->figures()['net']+(float)$row->overdue,2);
     if($data['payment_status']==='paid' && $amount<=0){$skipped++;continue;}
     if($data['payment_status']==='paid') {
-     if(round((float)$row->paid_amount,2)!==$amount){$row->paid_amount=$amount;$row->payment_date=now('Asia/Karachi')->toDateString();}
+     $row->paid_amount=$amount;$row->payment_date=$data['payment_date'];
     } else {$row->paid_amount=0;$row->payment_date=null;}
     $row->save();$updated++;
    }
    return [$updated,$skipped];
   });
-  return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success',$updated.' salary record(s) marked '.ucfirst($data['payment_status']).'.'.($skipped?' '.$skipped.' skipped: no positive salary payable.':''));
+  return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success',(($data['date_only']??false)?$updated.' payment date(s) corrected; payment amounts unchanged.':$updated.' salary record(s) marked '.ucfirst($data['payment_status']).'.').($skipped?' '.$skipped.' skipped: no positive salary payable.':''));
  }
  public function advance(Request $request) {
   $month=$this->month($request);
