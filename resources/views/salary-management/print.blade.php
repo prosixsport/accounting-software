@@ -248,7 +248,7 @@ $payDate=!empty($r->payment_date)?\Illuminate\Support\Carbon::parse($r->payment_
 
 <div class="ref-dates"><div><span>Period End</span><strong>{{ $periodEnd->format('d/m/Y') }}</strong></div><div><span>Print Date</span><strong class="current-print-date">{{ now('Asia/Karachi')->format('d/m/Y') }}</strong></div><div><span>Month</span><strong>{{ $month->format('F Y') }}</strong></div><div><span>Pay Date</span><strong>{{ $payDate }}</strong></div><div><span>Department</span><strong>{{ $e->department ?? '-' }}</strong></div></div>
 
-<table class="ref-table"><thead><tr><th>Salary Days To Date / 30</th><th>Present</th><th>Absent</th><th>OT Hours</th><th>OT Rate / Hour</th></tr></thead><tbody><tr><td>{{ $elapsedDays }}</td><td>{{ $presentDays }}</td><td>{{ (int)$r->absent_days }}</td><td>{{ (int)$r->ot_hours }}</td><td>Rs {{ number_format($hourlyRate,2) }}</td></tr></tbody></table>
+<table class="ref-table"><thead><tr><th>Salary Days To Date / 30</th><th>Present</th><th>Absent</th><th>OT Hours</th><th>OT Rate / Hour</th></tr></thead><tbody><tr><td>{{ $elapsedDays }}</td><td>{{ $presentDays }}</td><td>{{ (int)$r->absent_days }}</td><td>{{ rtrim(rtrim(number_format($r->ot_hours,2,'.',''),'0'),'.') }}</td><td>Rs {{ number_format($hourlyRate,2) }}</td></tr></tbody></table>
 
 <table class="ref-earnings"><thead><tr><th>Earnings / Deductions</th><th>Amount</th></tr></thead><tbody>
 

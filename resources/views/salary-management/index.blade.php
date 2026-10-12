@@ -424,7 +424,7 @@
 
                                     @endphp
 
-                                    <div><label class="sm-label" for="sm-{{ $employee->id }}-{{ $field }}">{{ $label }}</label><input class="sm-control" id="sm-{{ $employee->id }}-{{ $field }}" type="number" name="{{ $field }}" min="0" max="{{ $field === 'absent_days' ? 30 : '9999999999.99' }}" step="{{ in_array($field,['absent_days','ot_hours']) ? '1' : '0.01' }}" value="{{ $value }}" @if(in_array($field,['day_rate','ot_rate'])) readonly aria-readonly="true" @endif required>
+                                    <div><label class="sm-label" for="sm-{{ $employee->id }}-{{ $field }}">{{ $label }}</label><input class="sm-control" id="sm-{{ $employee->id }}-{{ $field }}" type="number" name="{{ $field }}" min="0" max="{{ $field === 'absent_days' ? 30 : '9999999999.99' }}" step="{{ $field==='absent_days' ? '1' : '0.01' }}" value="{{ $value }}" @if(in_array($field,['day_rate','ot_rate'])) readonly aria-readonly="true" @endif required>
 
                                         @if($field === 'loan_balance')<div class="sm-hint">Information only. Deduct the monthly loan installment separately.</div>@endif
 
@@ -464,7 +464,7 @@
 
                         <label class="sm-label" for="sm-week-{{ $employee->id }}">Advance Week</label>
                         <select class="sm-control sm-advance-week mb-3" id="sm-week-{{ $employee->id }}" name="advance_week" required data-month="{{ $monthKey }}">
-                            @for($week = 1; $week <= 5; $week++)
+                            @for($week = 1; $week <= ceil($month->daysInMonth/7); $week++)
                                 <option value="{{ $week }}" @selected($restore && (int)old('advance_week',1)===$week)>Week {{ $week }} Advance</option>
                             @endfor
                         </select>
@@ -645,7 +645,7 @@
             const hours = Number(form.elements.namedItem('working_hours_per_day').value);
             const dayRate = round(salary / days);
             form.elements.namedItem('day_rate').value = dayRate.toFixed(2);
-            form.elements.namedItem('ot_rate').value = (hours >= 1 && hours <= 24 ? round(dayRate / hours) : 0).toFixed(2);
+            form.elements.namedItem('ot_rate').value = (hours >= 1 && hours <= 24 ? round(salary / days / hours) : 0).toFixed(2);
         }
         function preview() {
             updateRates();
@@ -654,7 +654,7 @@
 
             const numbers = { salary: value('salary'), advance: Number(form.dataset.advanceTotal),
 
-                absence: round(value('absent_days') * value('day_rate')), ot: round(value('ot_hours') * value('ot_rate')),
+                absence: round(value('absent_days') * value('salary') / 30), ot: round(value('ot_hours') * value('salary') / 30 / Math.max(1,value('working_hours_per_day'))),
 
                 deduction: round(value('loan_deduction') + value('other_deduction')), overdue: value('overdue'), paid: value('paid_amount') };
 
@@ -672,7 +672,7 @@
 
         form.querySelector('[data-fill-final]').addEventListener('click', function () {
             const value = name => Number(form.elements.namedItem(name).value) || 0;
-            const amount = round(value('salary') + round(value('ot_hours')*value('ot_rate')) - round(value('absent_days')*value('day_rate')) - Number(form.dataset.advanceTotal) - value('loan_deduction') - value('other_deduction') + value('overdue'));
+            const amount = round(value('salary') + round(value('ot_hours')*value('salary')/30/Math.max(1,value('working_hours_per_day'))) - round(value('absent_days')*value('salary')/30) - Number(form.dataset.advanceTotal) - value('loan_deduction') - value('other_deduction') + value('overdue'));
             form.elements.namedItem('paid_amount').value = Math.max(0, amount).toFixed(2);
             preview();
         });
@@ -716,7 +716,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  <label class="sm-label">Salary Date</label><input class="sm-control mb-3" name="salary_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}" value="{{ $month->isSameMonth(now()) ? now()->toDateString() : $month->toDateString() }}" required>
  <h5>Salary & Attendance</h5><div class="row g-3">
  @foreach(['salary'=>'Monthly Salary','absent_days'=>'Absent Days','ot_hours'=>'Overtime Hours','working_hours_per_day'=>'Working Hours Per Day'] as $field=>$label)
- <div class="col-md-3"><label class="sm-label">{{ $label }}</label><input class="sm-control" type="number" name="{{ $field }}" min="{{ $field==='working_hours_per_day'?1:0 }}" max="{{ $field==='absent_days'?30:($field==='working_hours_per_day'?24:'9999999999.99') }}" step="{{ $field==='salary'?'0.01':1 }}" value="{{ $field==='working_hours_per_day'?8:0 }}" required></div>
+ <div class="col-md-3"><label class="sm-label">{{ $label }}</label><input class="sm-control" type="number" name="{{ $field }}" min="{{ $field==='working_hours_per_day'?1:0 }}" max="{{ $field==='absent_days'?30:($field==='working_hours_per_day'?24:'9999999999.99') }}" step="{{ in_array($field,['salary','ot_hours'])?'0.01':1 }}" value="{{ $field==='working_hours_per_day'?8:0 }}" required></div>
  @endforeach
  <input type="hidden" name="day_rate" value="0"><input type="hidden" name="ot_rate" value="0">
  </div><p class="sm-hint mt-2" id="sm-entry-rates">Daily and hourly rates calculate automatically.</p>
@@ -724,7 +724,8 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  @foreach(['loan_balance'=>'Loan Balance — information only','loan_deduction'=>'Loan Installment to Deduct','other_deduction'=>'Other Deduction','overdue'=>'Previous Unpaid Salary (+)','paid_amount'=>'Final Salary Already Paid'] as $field=>$label)<div class="col-md-4"><label class="sm-label">{{ $label }}</label><input class="sm-control" name="{{ $field }}" type="number" min="0" max="9999999999.99" step="0.01" value="0" required></div>@endforeach
  <div class="col-12"><label class="sm-label">Notes</label><textarea class="sm-control" name="notes" maxlength="2000"></textarea></div>
  </div><p class="sm-hint mt-2">Loan balance does not reduce salary. Only the entered loan installment is deducted.</p></details>
- <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>One new payment per save. Week follows the date: 1–7, 8–14, 15–21, 22–28, 29–month end.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week" aria-label="Week calculated from advance date" style="pointer-events:none;background:#eef5f5" tabindex="-1"><option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option><option value="4">Week 4</option><option value="5">Week 5</option></select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div></section>
+ <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>One new payment per save. Week follows the date: 1–7, 8–14, 15–21, 22–28, 29–month end.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week" aria-label="Select advance week">@for($w=1;$w<=ceil($month->daysInMonth/7);$w++)<option value="{{ $w }}">Week {{ $w }} · {{ ($w-1)*7+1 }}–{{ min($w*7,$month->daysInMonth) }}</option>
+@endfor</select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div></section>
  <section class="sm-section mt-3"><h5 id="sm-ledger-title">Saved Advance Record</h5><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Week</th><th>Amount</th><th>Reason</th></tr></thead><tbody id="sm-entry-ledger"></tbody></table></div><div class="sm-hint" id="sm-entry-week-totals"></div><p class="sm-hint">New advances appear here after saving. Each payment is deducted once.</p></section>
  <div class="alert alert-info" id="sm-entry-preview" aria-live="polite"></div>
  </fieldset></form></div>
@@ -783,12 +784,12 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  function preview(){
   const w=workers.find(w=>String(w.id)===select.value);if(!w)return;
   const day=round(num('salary')/days), hrs=num('working_hours_per_day');
-  form.elements.day_rate.value=day.toFixed(2);form.elements.ot_rate.value=(hrs>=1&&hrs<=24?round(day/hrs):0).toFixed(2);
+  form.elements.day_rate.value=day.toFixed(2);form.elements.ot_rate.value=(hrs>=1&&hrs<=24?round(num('salary')/days/hrs):0).toFixed(2);
   const advances=Number(w.advance)+num('entry_advance_amount');
-  const net=round(num('salary')+round(num('ot_hours')*num('ot_rate'))-round(num('absent_days')*day)-advances-num('loan_deduction')-num('other_deduction'));
+  const net=round(num('salary')+round(num('ot_hours')*num('salary')/days/Math.max(1,num('working_hours_per_day')))-round(num('absent_days')*num('salary')/days)-advances-num('loan_deduction')-num('other_deduction'));
   document.getElementById('sm-entry-rates').textContent='Absence rate: '+money(day)+'/day · Overtime rate: '+money(num('ot_rate'))+'/hour';
   const preview=document.getElementById('sm-entry-preview');preview.replaceChildren();
-  for(const [label,amount] of [['Monthly Salary (+)',num('salary')],['Overtime (+)',round(num('ot_hours')*num('ot_rate'))],['Absence Deduction (−)',round(num('absent_days')*day)],['Advances (−)',advances],['Loan Installment (−)',num('loan_deduction')],['Other Deduction (−)',num('other_deduction')],['Net Salary',net],['Previous Due (+)',num('overdue')],['Final Salary Paid (−)',num('paid_amount')],['Remaining Due',round(net+num('overdue')-num('paid_amount'))]]){
+  for(const [label,amount] of [['Monthly Salary (+)',num('salary')],['Overtime (+)',round(num('ot_hours')*num('salary')/days/Math.max(1,num('working_hours_per_day')))],['Absence Deduction (−)',round(num('absent_days')*num('salary')/days)],['Advances (−)',advances],['Loan Installment (−)',num('loan_deduction')],['Other Deduction (−)',num('other_deduction')],['Net Salary',net],['Previous Due (+)',num('overdue')],['Final Salary Paid (−)',num('paid_amount')],['Remaining Due',round(net+num('overdue')-num('paid_amount'))]]){
    if(amount===0 && !['Monthly Salary (+)','Net Salary','Remaining Due'].includes(label))continue;
    const line=document.createElement('div');line.style.cssText='display:flex;justify-content:space-between;gap:12px;padding:4px 0';
    const caption=document.createElement('span'),value=document.createElement('strong');caption.textContent=label;value.textContent=money(amount);line.appendChild(caption);line.appendChild(value);preview.appendChild(line);
@@ -807,6 +808,11 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  if(date)form.elements.entry_advance_week.value=String(Math.min(5,Math.floor((Number(date.slice(8,10))-1)/7)+1));
 }
 form.elements.entry_advance_date.addEventListener('change',syncWeek);
+form.elements.entry_advance_week.addEventListener('change',()=>{
+ const input=form.elements.entry_advance_date,week=Number(form.elements.entry_advance_week.value),start=(week-1)*7+1;
+ const currentDay=Number(input.value.slice(8,10));
+ if(!input.value||Math.min(5,Math.floor((currentDay-1)/7)+1)!==week)input.value=input.min.slice(0,7)+'-'+String(start).padStart(2,'0');
+});
 form.elements.salary_date.addEventListener('change',()=>{dateDefault=form.elements.salary_date.value;form.elements.entry_advance_date.value=dateDefault;syncWeek();});
 document.addEventListener('click',event=>{const button=event.target.closest('[data-edit-salary]');if(!button)return;const worker=workers.find(w=>String(w.id)===button.dataset.editSalary);if(!worker)return;editing=true;dept.value=worker.department;options();select.value=String(worker.id);load();message.hidden=true;document.getElementById('sm-dept-complete').hidden=true;dialog.querySelector('h4').textContent='Edit Salary — '+worker.name;document.getElementById('sm-entry-save').textContent='Save Changes';dialog.showModal();});
  document.getElementById('sm-add-salary').addEventListener('click',()=>{editing=false;dialog.querySelector('h4').textContent='Add Salary';document.getElementById('sm-entry-save').textContent='Save & Next Worker';document.getElementById('sm-dept-complete').hidden=true;options();dialog.showModal();});
@@ -856,6 +862,7 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
  const weeks=document.getElementById('sm-weeks-show'),panel=document.getElementById('sm-summary-panel');
  const popupWeek=document.getElementById('sm-popup-week');
  const selectedMonth=document.getElementById('salary-month');
+ const pageUrl=new URL(location.href);pageUrl.searchParams.set('month',{{ \Illuminate\Support\Js::from($monthKey) }});history.replaceState(history.state,'',pageUrl);
 
  const dateParts=()=>Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Karachi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
  function followToday(){
@@ -926,6 +933,12 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
 
 <script>
 (function(){
+ document.querySelectorAll('.sm-advance-week').forEach(select=>{
+  const date=select.form.elements.advance_date;
+  const sync=()=>{if(date.value)select.value=String(Math.min(5,Math.floor((Number(date.value.slice(8,10))-1)/7)+1));};
+  select.addEventListener('change',()=>{const week=Number(select.value);if(!date.value||Math.floor((Number(date.value.slice(8,10))-1)/7)+1!==week)date.value=date.min.slice(0,7)+'-'+String((week-1)*7+1).padStart(2,'0');});
+  date.addEventListener('change',sync);sync();
+ });
  const key='salary-view-'+{{ \Illuminate\Support\Js::from($monthKey) }};
  function savePosition(){try{
   const value=id=>document.getElementById(id)?.value||'';

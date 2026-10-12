@@ -9,8 +9,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 class SalaryManagementController extends Controller {
  private function month(Request $request): Carbon {
-  $data=$request->validate(['month'=>['nullable','date_format:Y-m']]);
-  return Carbon::createFromFormat('!Y-m',$data['month']??now()->format('Y-m'))->startOfMonth();
+  $data=$request->validate(['month'=>[$request->isMethod('GET')?'nullable':'required','date_format:Y-m']]);
+  $selected=$data['month']??$request->session()->get('salary_management_month',now('Asia/Karachi')->format('Y-m'));
+  $month=Carbon::createFromFormat('!Y-m',$selected)->startOfMonth();
+  $request->session()->put('salary_management_month',$month->format('Y-m'));
+  return $month;
  }
  public function index(Request $request) {
   $month=$this->month($request);
@@ -36,7 +39,7 @@ class SalaryManagementController extends Controller {
   foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount'] as $f) $rules[$f]=['required','numeric','min:0','max:9999999999.99'];
   $rules['working_hours_per_day']=['required','numeric','multiple_of:1','min:1','max:24'];
   $rules['absent_days'][]='multiple_of:1';
-  $rules['ot_hours'][]='multiple_of:1';
+  $rules['ot_hours'][]='decimal:0,2';
   $rules['ot_hours'][]='max:'.(30*24);
   $rules['absent_days'][]='max:30';
   $rules['salary_date']=['nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()];
@@ -50,7 +53,7 @@ class SalaryManagementController extends Controller {
   }
   if(!empty($data['entry_advance_date'])) $data['entry_advance_week']=min(5,intdiv(Carbon::parse($data['entry_advance_date'])->day-1,7)+1);
   $data['day_rate']=round($data['salary']/30,2);
-  $data['ot_rate']=round($data['day_rate']/$data['working_hours_per_day'],2);
+  $data['ot_rate']=round($data['salary']/30/$data['working_hours_per_day'],2);
   $row=DB::transaction(function() use($data,$month) {
    Employee::whereKey($data['employee_id'])->lockForUpdate()->firstOrFail();
    $existing=SalaryManagementRow::where('employee_id',$data['employee_id'])->whereDate('month',$month->toDateString())->lockForUpdate()->first();
