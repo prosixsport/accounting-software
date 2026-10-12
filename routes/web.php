@@ -251,6 +251,7 @@ Route::middleware('auth')->group(function () {
     /*
      * Salary Management
      */
+    Route::patch('/salary-management/advances/{advance}', [SalaryManagementController::class, 'updateAdvance'])->name('salary-management.advance.update');
     Route::patch('/salary-management/payment-status', [SalaryManagementController::class, 'paymentStatus'])->name('salary-management.payment-status');
     Route::get(
         '/salary-management',

@@ -701,7 +701,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  $data=[];
  foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount','working_hours_per_day','salary_date','notes'] as $field) $data[$field]=$r?->{$field};
  $schedule=$loanSchedules->get($e->id);if($schedule['managed']){$data['loan_balance']=$schedule['loan_balance'];$data['loan_deduction']=$schedule['loan_deduction'];}
- return ['managed_loan'=>$schedule['managed'],'id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
+ return ['managed_loan'=>$schedule['managed'],'id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['id'=>$a->id,'date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
 })->values();
 @endphp
 <dialog id="sm-batch-dialog" class="salary-manager" style="width:min(960px,95vw);max-height:92vh;border:1px solid #ddd;border-radius:16px;padding:0;overflow:hidden">
@@ -726,7 +726,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  </div><p class="sm-hint mt-2">Loan balance does not reduce salary. Only the entered loan installment is deducted.</p></details>
  <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>Select week, date and amount, then click Add Advance to save for this worker. Current salary details are saved too. Week follows the payment date.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week" aria-label="Select advance week">@for($w=1;$w<=ceil($month->daysInMonth/7);$w++)<option value="{{ $w }}">Week {{ $w }} · {{ ($w-1)*7+1 }}–{{ min($w*7,$month->daysInMonth) }}</option>
 @endfor</select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div><div class="mt-3"><button type="button" id="sm-entry-add-advance" class="sm-btn sm-btn-primary">+ Add Advance</button><span class="sm-hint ms-2">Stay on this worker and add another week.</span></div></section>
- <section class="sm-section mt-3"><h5 id="sm-ledger-title">Saved Advance Record</h5><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Week</th><th>Amount</th><th>Reason</th></tr></thead><tbody id="sm-entry-ledger"></tbody></table></div><div class="sm-hint" id="sm-entry-week-totals"></div><p class="sm-hint">New advances appear here after saving. Each payment is deducted once.</p></section>
+ <section class="sm-section mt-3"><h5 id="sm-ledger-title">Saved Advance Record</h5><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Week</th><th>Amount</th><th>Reason</th><th>Actions</th></tr></thead><tbody id="sm-entry-ledger"></tbody></table></div><div class="sm-hint" id="sm-entry-week-totals"></div><p class="sm-hint">New advances appear here after saving. Each payment is deducted once.</p></section>
  <div class="alert alert-info" id="sm-entry-preview" aria-live="polite"></div>
  </fieldset></form></div>
  <footer style="padding:14px 24px;background:white;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:12px"><span class="sm-hint" id="sm-entry-progress">Choose a department and worker.</span><button class="sm-btn sm-btn-primary" type="submit" form="sm-batch-form" id="sm-entry-save" disabled>Save & Next Worker</button></footer>
@@ -750,10 +750,31 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
   for(const a of ledger){
    const tr=document.createElement('tr');
    for(const text of [a.date,'Week '+a.week,money(Number(a.amount)),a.reason||'—']){const td=document.createElement('td');td.textContent=text;tr.appendChild(td);}body.appendChild(tr);
+   const actions=document.createElement('td'),edit=document.createElement('button');edit.type='button';edit.className='sm-btn sm-btn-small';edit.innerHTML='<i class="bi bi-pencil"></i>';edit.title='Edit advance';edit.setAttribute('aria-label','Edit advance '+a.date);edit.disabled=!a.id;edit.addEventListener('click',()=>editAdvance(w,a,tr));actions.appendChild(edit);tr.appendChild(actions);
    if(a.week>=1&&a.week<=5)totals[a.week-1]+=Number(a.amount);
   }
-  if(!ledger.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.textContent='No saved advances for this worker.';tr.appendChild(td);body.appendChild(tr);}
+  if(!ledger.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='No saved advances for this worker.';tr.appendChild(td);body.appendChild(tr);}
   document.getElementById('sm-entry-week-totals').textContent=totals.map((n,i)=>'Week '+(i+1)+': '+money(n)).join(' · ');
+ }
+ function editAdvance(w,a,tr){
+  if(saving)return;
+  tr.replaceChildren();const inputs={};
+  for(const [key,type,value] of [['advance_date','date',a.date],['amount','number',a.amount],['reason','text',a.reason||'']]){const input=document.createElement('input');input.className='sm-control';input.type=type;input.value=value;if(key==='amount'){input.min='0.01';input.step='0.01';}if(key==='advance_date'){input.min=form.elements.entry_advance_date.min;input.max=form.elements.entry_advance_date.max;}if(key==='reason')input.maxLength=1000;inputs[key]=input;}
+  const cells=Array.from({length:5},()=>document.createElement('td'));cells[0].appendChild(inputs.advance_date);cells[1].textContent='Week follows date';cells[2].appendChild(inputs.amount);cells[3].appendChild(inputs.reason);
+  const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';save.className=cancel.className='sm-btn sm-btn-small';save.textContent='Save';cancel.textContent='Cancel';cells[4].append(save,cancel);tr.append(...cells);
+  cancel.addEventListener('click',()=>{if(!saving)renderLedger(w);});
+  save.addEventListener('click',async()=>{
+   if(saving)return;if(!inputs.advance_date.value||!inputs.amount.value||!Object.values(inputs).every(input=>input.reportValidity()))return;
+   saving=true;save.disabled=true;select.disabled=dept.disabled=true;document.getElementById('sm-entry-save').disabled=true;document.getElementById('sm-entry-add-advance').disabled=true;
+   try{
+    const payload=new FormData();payload.set('_token',form.elements._token.value);payload.set('_method','PATCH');payload.set('month',{{ \Illuminate\Support\Js::from($monthKey) }});payload.set('employee_id',String(w.id));payload.set('original_date',a.date);payload.set('original_amount',String(a.amount));payload.set('original_reason',a.reason||'');
+    for(const [key,input] of Object.entries(inputs))payload.set(key,input.value);
+    const url={{ \Illuminate\Support\Js::from(url('/salary-management/advances')) }}+'/'+a.id;
+    const response=await fetch(url,{method:'POST',body:payload,headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});const data=await response.json();if(!response.ok)throw Error(data.errors?Object.values(data.errors).flat().join(' '):(data.message||'Unable to update advance.'));
+    w.advance=data.advance;w.ledger=data.ledger;w.data=data.row;changed=true;renderLedger(w);preview();message.hidden=false;message.className='alert alert-success';message.textContent='Advance updated for '+w.name+'.';document.dispatchEvent(new Event('salary-record-saved'));
+   }catch(error){message.hidden=false;message.className='alert alert-danger';message.textContent=error.message;}
+   finally{saving=false;save.disabled=false;select.disabled=dept.disabled=false;document.getElementById('sm-entry-save').disabled=!select.value;document.getElementById('sm-entry-add-advance').disabled=false;}
+  });
  }
  function progress(){
   const list=workers.filter(w=>!dept.value||w.department===dept.value), saved=list.filter(w=>w.saved).length;
@@ -841,7 +862,7 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
    const response=await fetch(form.action,{method:'POST',body:payload,headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
    const data=await response.json();if(!response.ok)throw new Error(data.errors?Object.values(data.errors).flat().join(' '):(data.message||'Unable to save.'));
    w.saved=true;w.data=data.row;w.advance=data.advance;w.ledger=data.ledger||[];changed=true;document.dispatchEvent(new Event('salary-record-saved'));
-   if(keepWorker){load();form.elements.entry_advance_week.value=savedWeek;form.elements.entry_advance_date.value=savedAdvanceDate;preview();progress();renderLedger(w);message.hidden=false;message.className='alert alert-success';message.textContent='Advance saved for '+w.name+'. Select another week to add more.';return;}
+   if(keepWorker){load();const nextWeek=Math.min(Number(savedWeek)+1,form.elements.entry_advance_week.options.length);form.elements.entry_advance_week.value=String(nextWeek);form.elements.entry_advance_date.value=nextWeek===Number(savedWeek)?savedAdvanceDate:form.elements.entry_advance_date.min.slice(0,7)+'-'+String((nextWeek-1)*7+1).padStart(2,'0');preview();progress();renderLedger(w);message.hidden=false;message.className='alert alert-success';message.textContent='Advance saved for '+w.name+'. Select another week to add more.';return;}
    if(editing){load();message.hidden=false;message.className='alert alert-success';message.textContent=w.name+' salary updated.';return;}
    const name=w.name, keptDepartment=dept.value, keptDate=form.elements.salary_date.value;dateDefault=keptDate;fields.disabled=false;form.reset();dept.value=keptDepartment;form.elements.salary_date.value=keptDate;fields.disabled=true;select.value='';options();renderLedger(w);document.getElementById('sm-extra-details').open=false;document.getElementById('sm-entry-preview').replaceChildren();
    message.hidden=false;message.className='alert alert-success';message.textContent=name+' salary saved.';pickNext();

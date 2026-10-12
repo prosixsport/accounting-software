@@ -29,7 +29,7 @@ class SalaryManagementController extends Controller {
  private function overview($employees,$rows): array {
   return $employees->map(function($e) use($rows) {
    $r=$rows->get($e->id);$f=$r?->figures();
-   return ['id'=>$e->id,'name'=>$e->name,'department'=>$e->department??'','saved'=>(bool)$r,'salary'=>(float)($r?->salary??0),'advance'=>(float)($f['advance']??0),'net'=>(float)($f['net']??0),'due'=>(float)($f['due']??0),'ledger'=>$r ? $r->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason??''])->values()->all():[]];
+   return ['id'=>$e->id,'name'=>$e->name,'department'=>$e->department??'','saved'=>(bool)$r,'salary'=>(float)($r?->salary??0),'advance'=>(float)($f['advance']??0),'net'=>(float)($f['net']??0),'due'=>(float)($f['due']??0),'ledger'=>$r ? $r->advances->map(fn($a)=>['id'=>$a->id,'date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week??min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason??''])->values()->all():[]];
   })->values()->all();
  }
  public function save(Request $request) {
@@ -67,7 +67,7 @@ class SalaryManagementController extends Controller {
    if (($data['entry_advance_amount']??0)>0) $row->advances()->create(['amount'=>$data['entry_advance_amount'],'advance_week'=>$data['entry_advance_week'],'advance_date'=>$data['entry_advance_date'],'reason'=>$data['entry_advance_reason']??null]);
    return $row;
   });
-  if ($request->expectsJson()) return response()->json(['message'=>'Salary saved.','row'=>$row->fresh()->toArray(),'advance'=>$row->load('advances')->figures()['advance'],'ledger'=>$row->advances->map(fn($a)=>['date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values()]);
+  if ($request->expectsJson()) return response()->json(['message'=>'Salary saved.','row'=>$row->fresh()->toArray(),'advance'=>$row->load('advances')->figures()['advance'],'ledger'=>$row->advances->map(fn($a)=>['id'=>$a->id,'date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values()]);
   return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success','Salary details saved.')->with('active_employee',$data['employee_id'])->with('active_tab','salary');
  }
  public function paymentStatus(Request $request) {
@@ -110,6 +110,21 @@ class SalaryManagementController extends Controller {
    $row->advances()->create(['advance_week'=>$data['advance_week'],'advance_date'=>$data['advance_date'],'amount'=>$data['amount'],'reason'=>$data['reason']??null]);
   });
   return redirect()->route('salary-management.index',['month'=>$month->format('Y-m')])->with('success','Advance added.')->with('active_employee',$data['employee_id'])->with('active_tab','advances');
+ }
+ public function updateAdvance(Request $request, SalaryManagementAdvance $advance) {
+  abort_unless($request->user()->hasPermission('payrolls'),403);
+  $month=$this->month($request);
+  $data=$request->validate(['employee_id'=>['required','integer','exists:employees,id'],'advance_date'=>['required','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()],'amount'=>['required','numeric','min:0.01','max:9999999999.99'],'reason'=>['nullable','string','max:1000'],'original_date'=>['required','date_format:Y-m-d'],'original_amount'=>['required','numeric'],'original_reason'=>['nullable','string','max:1000']]);
+  $row=DB::transaction(function()use($data,$month,$advance){
+   Employee::whereKey($data['employee_id'])->lockForUpdate()->firstOrFail();
+   $row=SalaryManagementRow::whereKey($advance->salary_row_id)->where('employee_id',$data['employee_id'])->whereDate('month',$month->toDateString())->lockForUpdate()->firstOrFail();
+   if((float)$row->paid_amount>0)throw \Illuminate\Validation\ValidationException::withMessages(['amount'=>'Mark salary Unpaid before editing an advance in a paid record.']);
+   $record=SalaryManagementAdvance::whereKey($advance->id)->lockForUpdate()->firstOrFail();
+   if($record->advance_date->toDateString()!==$data['original_date'] || round((float)$record->amount,2)!==round((float)$data['original_amount'],2) || (string)$record->reason!==(string)($data['original_reason']??''))throw \Illuminate\Validation\ValidationException::withMessages(['amount'=>'This advance changed elsewhere. Close and reopen the salary page before editing.']);
+   $record->update(['advance_date'=>$data['advance_date'],'advance_week'=>min(5,intdiv(Carbon::parse($data['advance_date'])->day-1,7)+1),'amount'=>$data['amount'],'reason'=>$data['reason']??null]);
+   return $row->fresh()->load('advances');
+  });
+  return response()->json(['row'=>$row->toArray(),'advance'=>$row->figures()['advance'],'ledger'=>$row->advances->map(fn($a)=>['id'=>$a->id,'date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)$a->advance_week,'amount'=>(float)$a->amount,'reason'=>$a->reason??''])->values()]);
  }
  public function deleteAdvance(Request $request, SalaryManagementAdvance $advance) {
   $row=SalaryManagementRow::findOrFail($advance->salary_row_id);
