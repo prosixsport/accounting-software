@@ -725,7 +725,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  <div class="col-12"><label class="sm-label">Notes</label><textarea class="sm-control" name="notes" maxlength="2000"></textarea></div>
  </div><p class="sm-hint mt-2">Loan balance does not reduce salary. Only the entered loan installment is deducted.</p></details>
  <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>Select week, date and amount, then click Add Advance to save for this worker. Current salary details are saved too. Week follows the payment date.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week" aria-label="Select advance week">@for($w=1;$w<=ceil($month->daysInMonth/7);$w++)<option value="{{ $w }}">Week {{ $w }} · {{ ($w-1)*7+1 }}–{{ min($w*7,$month->daysInMonth) }}</option>
-@endfor</select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div><div class="mt-3"><button type="button" id="sm-entry-add-advance" class="sm-btn sm-btn-primary">+ Add Advance</button><span class="sm-hint ms-2">Stay on this worker and add another week.</span></div></section>
+@endfor</select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div><div class="mt-3"><button type="button" id="sm-entry-add-advance" class="sm-btn sm-btn-primary">+ Add Advance</button><span class="sm-hint ms-2">Enter 0 if no advance was paid. Save and continue to the next week.</span></div></section>
  <section class="sm-section mt-3"><h5 id="sm-ledger-title">Saved Advance Record</h5><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Week</th><th>Amount</th><th>Reason</th><th>Actions</th></tr></thead><tbody id="sm-entry-ledger"></tbody></table></div><div class="sm-hint" id="sm-entry-week-totals"></div><p class="sm-hint">New advances appear here after saving. Each payment is deducted once.</p></section>
  <div class="alert alert-info" id="sm-entry-preview" aria-live="polite"></div>
  </fieldset></form></div>
@@ -759,7 +759,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  function editAdvance(w,a,tr){
   if(saving)return;
   tr.replaceChildren();const inputs={};
-  for(const [key,type,value] of [['advance_date','date',a.date],['amount','number',a.amount],['reason','text',a.reason||'']]){const input=document.createElement('input');input.className='sm-control';input.type=type;input.value=value;if(key==='amount'){input.min='0.01';input.step='0.01';}if(key==='advance_date'){input.min=form.elements.entry_advance_date.min;input.max=form.elements.entry_advance_date.max;}if(key==='reason')input.maxLength=1000;inputs[key]=input;}
+  for(const [key,type,value] of [['advance_date','date',a.date],['amount','number',a.amount],['reason','text',a.reason||'']]){const input=document.createElement('input');input.className='sm-control';input.type=type;input.value=value;if(key==='amount'){input.min='0';input.step='0.01';}if(key==='advance_date'){input.min=form.elements.entry_advance_date.min;input.max=form.elements.entry_advance_date.max;}if(key==='reason')input.maxLength=1000;inputs[key]=input;}
   const cells=Array.from({length:5},()=>document.createElement('td'));cells[0].appendChild(inputs.advance_date);cells[1].textContent='Week follows date';cells[2].appendChild(inputs.amount);cells[3].appendChild(inputs.reason);
   const save=document.createElement('button'),cancel=document.createElement('button');save.type=cancel.type='button';save.className=cancel.className='sm-btn sm-btn-small';save.textContent='Save';cancel.textContent='Cancel';cells[4].append(save,cancel);tr.append(...cells);
   cancel.addEventListener('click',()=>{if(!saving)renderLedger(w);});
@@ -844,7 +844,7 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
  dept.addEventListener('change',()=>{select.value='';pickNext();});select.addEventListener('change',load);form.addEventListener('input',preview);
  document.getElementById('sm-entry-add-advance').addEventListener('click',()=>{
   if(saving||!select.value)return;
-  if(num('entry_advance_amount')<=0){message.hidden=false;message.className='alert alert-danger';message.textContent='Enter an advance amount greater than zero.';form.elements.entry_advance_amount.focus();return;}
+  if(form.elements.entry_advance_amount.value==='' || num('entry_advance_amount')<0){message.hidden=false;message.className='alert alert-danger';message.textContent='Enter an amount of zero or more.';form.elements.entry_advance_amount.focus();return;}
   if(!form.elements.entry_advance_date.value){message.hidden=false;message.className='alert alert-danger';message.textContent='Select the advance payment date.';form.elements.entry_advance_date.focus();return;}
   if(!form.reportValidity())return;
   addingAdvance=true;form.requestSubmit();
@@ -856,7 +856,7 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
 
   const w=workers.find(w=>String(w.id)===select.value);if(!w)return;
   if(num('entry_advance_amount')>0 && !form.elements.entry_advance_date.value){form.elements.entry_advance_date.reportValidity();message.hidden=false;message.className='alert alert-danger';message.textContent='Enter the advance date.';return;}
-  const payload=new FormData(form);payload.set('employee_id',String(w.id));payload.set('month',{{ \Illuminate\Support\Js::from($monthKey) }});
+  const payload=new FormData(form);payload.set('save_advance',keepWorker?'1':'0');payload.set('employee_id',String(w.id));payload.set('month',{{ \Illuminate\Support\Js::from($monthKey) }});
   saving=true;const advanceButton=document.getElementById('sm-entry-add-advance');advanceButton.disabled=true;select.disabled=true;dept.disabled=true;const button=document.getElementById('sm-entry-save');button.disabled=true;button.textContent='Saving…';message.hidden=true;
   try{
    const response=await fetch(form.action,{method:'POST',body:payload,headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});

@@ -43,12 +43,13 @@ class SalaryManagementController extends Controller {
   $rules['ot_hours'][]='max:'.(30*24);
   $rules['absent_days'][]='max:30';
   $rules['salary_date']=['nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()];
+  $rules['save_advance']=['nullable','boolean'];
   $rules['entry_advance_amount']=['nullable','numeric','min:0','max:9999999999.99'];
   $rules['entry_advance_week']=['nullable','integer','min:1','max:5'];
   $rules['entry_advance_date']=['nullable','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()];
   $rules['entry_advance_reason']=['nullable','string','max:1000'];
   $data=$request->validate($rules);
-  if (($data['entry_advance_amount']??0)>0 && (empty($data['entry_advance_date']) || empty($data['entry_advance_week']))) {
+  if ((($data['entry_advance_amount']??0)>0 || ($data['save_advance']??false)) && (empty($data['entry_advance_date']) || empty($data['entry_advance_week']))) {
    throw \Illuminate\Validation\ValidationException::withMessages(['entry_advance_date'=>'Select advance date and week.']);
   }
   if(!empty($data['entry_advance_date'])) $data['entry_advance_week']=min(5,intdiv(Carbon::parse($data['entry_advance_date'])->day-1,7)+1);
@@ -61,10 +62,10 @@ class SalaryManagementController extends Controller {
    $schedule=(new \App\Services\WorkerLoans)->schedule($data['employee_id'],$month->toDateString(),$existing?->id);
    $salaryData=$data;
    if($schedule['managed']){ $salaryData['loan_balance']=$schedule['loan_balance'];$salaryData['loan_deduction']=$schedule['loan_deduction']; }
-   foreach(['entry_advance_amount','entry_advance_week','entry_advance_date','entry_advance_reason'] as $field) unset($salaryData[$field]);
+   foreach(['save_advance','entry_advance_amount','entry_advance_week','entry_advance_date','entry_advance_reason'] as $field) unset($salaryData[$field]);
    $row=SalaryManagementRow::updateOrCreate(['employee_id'=>$data['employee_id'],'month'=>$month->toDateString()],$salaryData);
    if($schedule['managed'])(new \App\Services\WorkerLoans)->sync($row,$schedule);
-   if (($data['entry_advance_amount']??0)>0) $row->advances()->create(['amount'=>$data['entry_advance_amount'],'advance_week'=>$data['entry_advance_week'],'advance_date'=>$data['entry_advance_date'],'reason'=>$data['entry_advance_reason']??null]);
+   if (($data['entry_advance_amount']??0)>0 || ($data['save_advance']??false)) $row->advances()->create(['amount'=>$data['entry_advance_amount']??0,'advance_week'=>$data['entry_advance_week'],'advance_date'=>$data['entry_advance_date'],'reason'=>$data['entry_advance_reason']??null]);
    return $row;
   });
   if ($request->expectsJson()) return response()->json(['message'=>'Salary saved.','row'=>$row->fresh()->toArray(),'advance'=>$row->load('advances')->figures()['advance'],'ledger'=>$row->advances->map(fn($a)=>['id'=>$a->id,'date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values()]);
@@ -114,7 +115,7 @@ class SalaryManagementController extends Controller {
  public function updateAdvance(Request $request, SalaryManagementAdvance $advance) {
   abort_unless($request->user()->hasPermission('payrolls'),403);
   $month=$this->month($request);
-  $data=$request->validate(['employee_id'=>['required','integer','exists:employees,id'],'advance_date'=>['required','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()],'amount'=>['required','numeric','min:0.01','max:9999999999.99'],'reason'=>['nullable','string','max:1000'],'original_date'=>['required','date_format:Y-m-d'],'original_amount'=>['required','numeric'],'original_reason'=>['nullable','string','max:1000']]);
+  $data=$request->validate(['employee_id'=>['required','integer','exists:employees,id'],'advance_date'=>['required','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()],'amount'=>['required','numeric','min:0','max:9999999999.99'],'reason'=>['nullable','string','max:1000'],'original_date'=>['required','date_format:Y-m-d'],'original_amount'=>['required','numeric'],'original_reason'=>['nullable','string','max:1000']]);
   $row=DB::transaction(function()use($data,$month,$advance){
    Employee::whereKey($data['employee_id'])->lockForUpdate()->firstOrFail();
    $row=SalaryManagementRow::whereKey($advance->salary_row_id)->where('employee_id',$data['employee_id'])->whereDate('month',$month->toDateString())->lockForUpdate()->firstOrFail();
