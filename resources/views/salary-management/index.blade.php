@@ -834,9 +834,10 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
 
   const w=workers.find(w=>String(w.id)===select.value);if(!w)return;
   if(num('entry_advance_amount')>0 && !form.elements.entry_advance_date.value){form.elements.entry_advance_date.reportValidity();message.hidden=false;message.className='alert alert-danger';message.textContent='Enter the advance date.';return;}
+  const payload=new FormData(form);payload.set('employee_id',String(w.id));
   saving=true;const advanceButton=document.getElementById('sm-entry-add-advance');advanceButton.disabled=true;select.disabled=true;dept.disabled=true;const button=document.getElementById('sm-entry-save');button.disabled=true;button.textContent='Saving…';message.hidden=true;
   try{
-   const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
+   const response=await fetch(form.action,{method:'POST',body:payload,headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
    const data=await response.json();if(!response.ok)throw new Error(data.errors?Object.values(data.errors).flat().join(' '):(data.message||'Unable to save.'));
    w.saved=true;w.data=data.row;w.advance=data.advance;w.ledger=data.ledger||[];changed=true;document.dispatchEvent(new Event('salary-record-saved'));
    if(keepWorker){load();form.elements.entry_advance_week.value=savedWeek;form.elements.entry_advance_date.value=savedAdvanceDate;preview();progress();renderLedger(w);message.hidden=false;message.className='alert alert-success';message.textContent='Advance saved for '+w.name+'. Select another week to add more.';return;}
