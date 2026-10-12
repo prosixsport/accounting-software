@@ -797,7 +797,8 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  }
  function load(){
   const w=workers.find(w=>String(w.id)===select.value);fields.disabled=!w;document.getElementById('sm-entry-save').disabled=!w;if(!w)return;
-  for(const [key,val] of Object.entries(w.data)){if(form.elements.namedItem(key))form.elements.namedItem(key).value=val??(key==='salary'?w.basic_salary:key==='working_hours_per_day'?8:key==='salary_date'?dateDefault:key==='notes'?'':0);}
+  for(const [key,val] of Object.entries(w.data)){if(['month','employee_id','id'].includes(key))continue;if(form.elements.namedItem(key))form.elements.namedItem(key).value=val??(key==='salary'?w.basic_salary:key==='working_hours_per_day'?8:key==='salary_date'?dateDefault:key==='notes'?'':0);}
+  form.elements.month.value={{ \Illuminate\Support\Js::from($monthKey) }};
   for(const key of ['absent_days','ot_hours','working_hours_per_day'])form.elements.namedItem(key).value=Number(form.elements.namedItem(key).value);
   for(const key of ['loan_balance','loan_deduction'])form.elements.namedItem(key).readOnly=Boolean(w.managed_loan);
   renderLedger(w);document.getElementById('sm-extra-details').open=['loan_balance','loan_deduction','other_deduction','overdue','paid_amount'].some(k=>num(k)>0);
@@ -834,7 +835,7 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
 
   const w=workers.find(w=>String(w.id)===select.value);if(!w)return;
   if(num('entry_advance_amount')>0 && !form.elements.entry_advance_date.value){form.elements.entry_advance_date.reportValidity();message.hidden=false;message.className='alert alert-danger';message.textContent='Enter the advance date.';return;}
-  const payload=new FormData(form);payload.set('employee_id',String(w.id));
+  const payload=new FormData(form);payload.set('employee_id',String(w.id));payload.set('month',{{ \Illuminate\Support\Js::from($monthKey) }});
   saving=true;const advanceButton=document.getElementById('sm-entry-add-advance');advanceButton.disabled=true;select.disabled=true;dept.disabled=true;const button=document.getElementById('sm-entry-save');button.disabled=true;button.textContent='Saving…';message.hidden=true;
   try{
    const response=await fetch(form.action,{method:'POST',body:payload,headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
