@@ -198,7 +198,7 @@ $today=now('Asia/Karachi')->startOfDay();
 $periodEnd=$month->copy()->endOfMonth()->startOfDay()->min($today);
 $elapsedDays=$month->greaterThan($today)?0:($month->isSameMonth($today) && !$today->isLastOfMonth()?min(30,$today->day):30);
 $dailyRate=(float)$r->salary/30;
-$hourlyRate=$dailyRate/max(1,(float)($r->working_hours_per_day??8));
+$hourlyRate=$dailyRate/max(1,(float)($r->working_hours_per_day??10));
 $presentDays=max(0,$elapsedDays-(int)$r->absent_days);
 $attendanceWarning=(int)$r->absent_days>$elapsedDays;
 // Monthly attendance and overtime inputs must contain actual totals through this date.

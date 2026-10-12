@@ -437,7 +437,7 @@
                         @endforeach
 
                         <label class="sm-label" for="sm-hours-{{ $employee->id }}">Working Hours Per Day</label>
-                        <input class="sm-control" id="sm-hours-{{ $employee->id }}" type="number" name="working_hours_per_day" min="1" max="24" step="1" value="{{ $restore ? old('working_hours_per_day', $row?->working_hours_per_day ?? 8) : ($row?->working_hours_per_day ?? 8) }}" required>
+                        <input class="sm-control" id="sm-hours-{{ $employee->id }}" type="number" name="working_hours_per_day" min="1" max="24" step="1" value="{{ $restore ? old('working_hours_per_day', $row?->working_hours_per_day ?? 10) : ($row?->working_hours_per_day ?? 10) }}" required>
                         <p class="sm-hint">Absence rate = monthly salary ÷ days in selected month. OT rate = absence rate ÷ working hours per day. Enter whole days and whole overtime hours: 1, 2, 3. The preview updates immediately; click Save Salary Details to save changes.</p>
                         <label class="sm-label" for="sm-notes-{{ $employee->id }}">Additional Notes</label><textarea class="sm-control" id="sm-notes-{{ $employee->id }}" name="notes" rows="3" maxlength="2000" placeholder="Add salary adjustments, payment details or remarks">{{ $restore ? old('notes', $row?->notes) : $row?->notes }}</textarea>
 
@@ -716,7 +716,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  <label class="sm-label">Salary Date</label><input class="sm-control mb-3" name="salary_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}" value="{{ $month->isSameMonth(now()) ? now()->toDateString() : $month->toDateString() }}" required>
  <h5>Salary & Attendance</h5><div class="row g-3">
  @foreach(['salary'=>'Monthly Salary','absent_days'=>'Absent Days','ot_hours'=>'Overtime Hours','working_hours_per_day'=>'Working Hours Per Day'] as $field=>$label)
- <div class="col-md-3"><label class="sm-label">{{ $label }}</label><input class="sm-control" type="number" name="{{ $field }}" min="{{ $field==='working_hours_per_day'?1:0 }}" max="{{ $field==='absent_days'?30:($field==='working_hours_per_day'?24:'9999999999.99') }}" step="{{ in_array($field,['salary','ot_hours'])?'0.01':1 }}" value="{{ $field==='working_hours_per_day'?8:0 }}" required></div>
+ <div class="col-md-3"><label class="sm-label">{{ $label }}</label><input class="sm-control" type="number" name="{{ $field }}" min="{{ $field==='working_hours_per_day'?1:0 }}" max="{{ $field==='absent_days'?30:($field==='working_hours_per_day'?24:'9999999999.99') }}" step="{{ in_array($field,['salary','ot_hours'])?'0.01':1 }}" value="{{ $field==='working_hours_per_day'?10:0 }}" required></div>
  @endforeach
  <input type="hidden" name="day_rate" value="0"><input type="hidden" name="ot_rate" value="0">
  </div><p class="sm-hint mt-2" id="sm-entry-rates">Daily and hourly rates calculate automatically.</p>
@@ -797,7 +797,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  }
  function load(){
   const w=workers.find(w=>String(w.id)===select.value);fields.disabled=!w;document.getElementById('sm-entry-save').disabled=!w;if(!w)return;
-  for(const [key,val] of Object.entries(w.data)){if(['month','employee_id','id'].includes(key))continue;if(form.elements.namedItem(key))form.elements.namedItem(key).value=val??(key==='salary'?w.basic_salary:key==='working_hours_per_day'?8:key==='salary_date'?dateDefault:key==='notes'?'':0);}
+  for(const [key,val] of Object.entries(w.data)){if(['month','employee_id','id'].includes(key))continue;if(form.elements.namedItem(key))form.elements.namedItem(key).value=val??(key==='salary'?w.basic_salary:key==='working_hours_per_day'?10:key==='salary_date'?dateDefault:key==='notes'?'':0);}
   form.elements.month.value={{ \Illuminate\Support\Js::from($monthKey) }};
   for(const key of ['absent_days','ot_hours','working_hours_per_day'])form.elements.namedItem(key).value=Number(form.elements.namedItem(key).value);
   for(const key of ['loan_balance','loan_deduction'])form.elements.namedItem(key).readOnly=Boolean(w.managed_loan);
