@@ -203,48 +203,6 @@
 
                     </div>
 
-                    {{-- ACCOUNT --}}
-                    <div class="col-lg-6">
-
-                        <label class="field-label">
-                            Expense Account
-                        </label>
-
-                        <div class="input-icon-wrapper">
-
-                            <i class="bi bi-bank"></i>
-
-                            <select
-                                name="account_id"
-                                class="form-select styled-input @error('account_id') is-invalid @enderror"
-                            >
-                                <option value="">
-                                    Select Account
-                                </option>
-
-                                @foreach($accounts as $account)
-
-                                    <option
-                                        value="{{ $account->id }}"
-                                        {{ old('account_id') == $account->id ? 'selected' : '' }}
-                                    >
-                                        {{ $account->code }} - {{ $account->name }}
-                                    </option>
-
-                                @endforeach
-
-                            </select>
-
-                        </div>
-
-                        @error('account_id')
-                            <div class="invalid-feedback d-block">
-                                {{ $message }}
-                            </div>
-                        @enderror
-
-                    </div>
-
                     {{-- AMOUNT --}}
                     <div class="col-lg-6">
 
@@ -334,55 +292,8 @@
 
                     </div>
 
-                    {{-- PAID FROM ACCOUNT --}}
-                    <div class="col-lg-6">
-
-                        <label class="field-label">
-                            Paid From
-                            <span>*</span>
-                        </label>
-
-                        <div class="input-icon-wrapper">
-
-                            <i class="bi bi-wallet-fill"></i>
-
-                            <select
-                                name="paid_from_account_id"
-                                class="form-select styled-input @error('paid_from_account_id') is-invalid @enderror"
-                                required
-                            >
-                                <option value="">
-                                    Select Cash or Bank Account
-                                </option>
-
-                                @foreach($paidFromAccounts as $paidFromAccount)
-
-                                    <option
-                                        value="{{ $paidFromAccount->id }}"
-                                        {{ old('paid_from_account_id') == $paidFromAccount->id ? 'selected' : '' }}
-                                    >
-                                        {{ $paidFromAccount->code }} - {{ $paidFromAccount->name }}
-                                    </option>
-
-                                @endforeach
-
-                            </select>
-
-                        </div>
-
-                        <small class="field-help-text">
-                            Select the cash or bank account used for this payment.
-                        </small>
-
-                        @error('paid_from_account_id')
-                            <div class="invalid-feedback d-block">
-                                {{ $message }}
-                            </div>
-                        @enderror
-
-                    </div>
-
-                    {{-- PAID BY --}}
+                    <div class="col-12"><div class="alert alert-info">Payment source: Funds Management. Saving this paid expense deducts its amount automatically.</div></div>
+{{-- PAID BY --}}
                     <div class="col-lg-6">
 
                         <label class="field-label">

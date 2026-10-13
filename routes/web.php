@@ -168,10 +168,7 @@ Route::middleware('auth')->group(function () {
     | Accounts
     |--------------------------------------------------------------------------
     */
-    Route::resource(
-        'accounts',
-        AccountController::class
-    );
+    
 
     /*
     |--------------------------------------------------------------------------
@@ -363,6 +360,8 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::get('/contractor-advances', [\App\Http\Controllers\ContractorAdvanceController::class, 'index'])->name('contractor-advances.index');
+    Route::post('/contractor-advances/batch', [\App\Http\Controllers\ContractorAdvanceController::class, 'batch'])->name('contractor-advances.batch');
+    Route::delete('/contractor-advances/{advance}', [\App\Http\Controllers\ContractorAdvanceController::class, 'destroy'])->name('contractor-advances.destroy');
     Route::post('/contractor-advances', [\App\Http\Controllers\ContractorAdvanceController::class, 'store'])->name('contractor-advances.store');
     Route::post('/contractor-advances/{advance}/verify', [\App\Http\Controllers\ContractorAdvanceController::class, 'verify'])->name('contractor-advances.verify');
     Route::put('/contractor-advances/{advance}', [\App\Http\Controllers\ContractorAdvanceController::class, 'update'])->name('contractor-advances.update');

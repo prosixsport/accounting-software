@@ -738,14 +738,7 @@
                 </a>
             @endif
             <div class="nav-label">Accounts & Salary</div>
-            {{-- Chart of Accounts --}}
-            @if($can('accounts'))
-                <a href="{{ route('accounts.index') }}"
-                   class="side-link {{ request()->routeIs('accounts.*') ? 'active' : '' }}">
-                    <i class="bi bi-journal-bookmark-fill"></i>
-                    <span>Chart of Accounts</span>
-                </a>
-            @endif
+            
             {{-- Owner Funds --}}
             @if(
                 $user

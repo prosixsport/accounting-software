@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Account;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\ExpenseReceiptUpload;
@@ -403,21 +402,13 @@ class ExpenseController extends Controller
          * Expense accounts:
          * Gas, electricity, tea, raw material etc.
          */
-        $accounts = Account::query()
-            ->where('type', 'expense')
-            ->where('is_active', true)
-            ->orderBy('code')
-            ->get();
+
 
         /*
          * Paid From accounts:
          * Cash on Hand, Bank Account etc.
          */
-        $paidFromAccounts = Account::query()
-            ->where('type', 'asset')
-            ->where('is_active', true)
-            ->orderBy('code')
-            ->get();
+
 
         $categories = ExpenseCategory::query()
             ->where('status', true)
@@ -442,8 +433,6 @@ class ExpenseController extends Controller
         return view(
             'expenses.create',
             compact(
-                'accounts',
-                'paidFromAccounts',
                 'categories'
             )
         );
@@ -508,11 +497,10 @@ class ExpenseController extends Controller
                 'category' => $category->name,
 
                 'account_id' =>
-                    $validated['account_id']
-                    ?? null,
+                    null,
 
                 'paid_from_account_id' =>
-                    $validated['paid_from_account_id'],
+                    null,
 
                 'vendor_name' =>
                     $validated['vendor_name']
@@ -584,17 +572,9 @@ class ExpenseController extends Controller
      */
     public function edit(Expense $expense)
     {
-        $accounts = Account::query()
-            ->where('type', 'expense')
-            ->where('is_active', true)
-            ->orderBy('code')
-            ->get();
 
-        $paidFromAccounts = Account::query()
-            ->where('type', 'asset')
-            ->where('is_active', true)
-            ->orderBy('code')
-            ->get();
+
+
 
         $categories = ExpenseCategory::query()
             ->where('status', true)
@@ -617,8 +597,6 @@ class ExpenseController extends Controller
             'expenses.edit',
             compact(
                 'expense',
-                'accounts',
-                'paidFromAccounts',
                 'categories'
             )
         );
@@ -680,13 +658,6 @@ class ExpenseController extends Controller
                 ],
 
             'category' => $category->name,
-
-            'account_id' =>
-                $validated['account_id']
-                ?? null,
-
-            'paid_from_account_id' =>
-                $validated['paid_from_account_id'],
 
             'vendor_name' =>
                 $validated['vendor_name']
@@ -777,7 +748,8 @@ class ExpenseController extends Controller
         return $request->validate([
             'expense_date' => [
                 'required',
-                'date',
+                'date_format:Y-m-d',
+                'before_or_equal:'.now('Asia/Karachi')->toDateString(),
             ],
 
             'expense_category_id' => [
@@ -800,31 +772,10 @@ class ExpenseController extends Controller
                 'exists:expense_sub_categories,id',
             ],
 
-            'account_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('accounts', 'id')
-                    ->where(function ($query) {
-                        return $query
-                            ->where('type', 'expense')
-                            ->where('is_active', true);
-                    }),
-            ],
-
-            'paid_from_account_id' => [
-                'required',
-                'integer',
-                Rule::exists('accounts', 'id')
-                    ->where(function ($query) {
-                        return $query
-                            ->where('type', 'asset')
-                            ->where('is_active', true);
-                    }),
-            ],
-
             'amount' => [
                 'required',
                 'numeric',
+                'decimal:0,2',
                 'min:0.01',
             ],
 

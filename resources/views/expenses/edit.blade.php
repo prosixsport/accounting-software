@@ -38,17 +38,7 @@
                     </select>
                 </div>
 
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Expense Account</label>
-                    <select name="account_id" class="form-select">
-                        <option value="">Select Account</option>
-                        @foreach($accounts as $account)
-                            <option value="{{ $account->id }}" {{ $expense->account_id == $account->id ? 'selected' : '' }}>
-                                {{ $account->code }} - {{ $account->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+                <div class="col-12"><div class="alert alert-info">Payment source: Funds Management. Correcting this expense updates its recorded cash amount.</div></div>
 
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Amount *</label>

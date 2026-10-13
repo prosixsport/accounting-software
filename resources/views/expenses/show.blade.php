@@ -239,26 +239,7 @@
                     </td>
                 </tr>
 
-                <tr>
-                    <th>
-                        <i class="bi bi-bank"></i>
-                        Expense Account
-                    </th>
-
-                    <td>
-                        @if($expense->account)
-
-                            {{ $expense->account->code }}
-                            -
-                            {{ $expense->account->name }}
-
-                        @else
-
-                            Not selected
-
-                        @endif
-                    </td>
-                </tr>
+                <tr><th>Payment Source</th><td>Funds Management</td></tr>
 
                 <tr>
                     <th>
