@@ -19,7 +19,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        foreach (['FundReceipt','SalaryManagementAdvance','SalaryManagementRow','EmployeeAdvance','Payroll','ContractorAdvance','ContractorBillPayment','Expense','Payment'] as $name) {
+        foreach (['FundReceipt','SalaryManagementAdvance','SalaryManagementRow','EmployeeAdvance','Payroll','ContractorAdvance','ContractorBillPayment','Expense','ExpenseAdvance','Payment'] as $name) {
             $model = 'App\\Models\\'.$name;
             $model::observe(\App\Observers\FundActivityObserver::class);
         }

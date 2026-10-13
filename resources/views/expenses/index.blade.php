@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+<a class="btn btn-outline-success mb-3" href="{{ route('expense-advances.index',['month'=>request('month',now('Asia/Karachi')->format('Y-m'))]) }}">Weekly Expense Advances</a>
 
 @php
     function expenseIcon($text)

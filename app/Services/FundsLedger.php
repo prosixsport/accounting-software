@@ -49,7 +49,8 @@ class FundsLedger
         foreach (DB::table('contractor_advances')->get() as $r) $add('contractor_advances',$r->id,$r->advance_date,'Contractor advance',$contractors[$r->contractor_id]??null,$r->amount,false,$r->remarks);
         foreach (DB::table('contractor_bill_payments')->join('contractor_bills','contractor_bills.id','=','contractor_bill_payments.contractor_bill_id')->select('contractor_bill_payments.*','contractor_bills.contractor_id','contractor_bills.bill_no')->get() as $r) $add('contractor_bill_payments',$r->id,$r->payment_date,'Contractor bill paid',$contractors[$r->contractor_id]??null,$r->amount,false,$r->bill_no.' · '.$r->remarks);
         $expenseCategories=DB::table('expense_categories')->pluck('name','id');
-        foreach (DB::table('expenses')->get() as $r) $add('expenses',$r->id,$r->expense_date,'Expense / bill',$r->vendor_name,$r->amount,false,trim(($expenseCategories[$r->expense_category_id??0]??($r->category??'' )).' · '.($r->description??''),' ·'),$r->payment_method);
+        if(\Illuminate\Support\Facades\Schema::hasTable('expense_advances'))foreach(DB::table('expense_advances')->get() as $r)$add('expense_advances',$r->id,$r->advance_date,'Expense advance',$r->recipient_name,$r->amount,false,$r->purpose,'cash');
+        foreach (DB::table('expenses')->get() as $r) if(empty($r->expense_advance_id)) $add('expenses',$r->id,$r->expense_date,'Expense / bill',$r->vendor_name,$r->amount,false,trim(($expenseCategories[$r->expense_category_id??0]??($r->category??'' )).' · '.($r->description??''),' ·'),$r->payment_method);
         $customers=DB::table('customers')->pluck('customer_name','id');
         foreach (DB::table('payments')->get() as $r) $add('payments',$r->id,$r->payment_date,'Customer receipt',$customers[$r->customer_id]??null,$r->amount,true,$r->payment_no,$r->payment_method);
         $receipts=DB::table('fund_receipts')->get()->keyBy('id');
@@ -79,7 +80,7 @@ class FundsLedger
         if(in_array($source,['salary_management_rows','salary_management_advances','employee_advances','payrolls']))return 'salary';
         if($source==='contractor_advances')return 'advances';
         if($source==='contractor_bill_payments')return 'bills';
-        if($source==='expenses')return 'expenses';
+        if(in_array($source,['expenses','expense_advances']))return 'expenses';
         return 'other';
     }
 

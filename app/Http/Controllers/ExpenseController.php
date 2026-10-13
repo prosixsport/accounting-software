@@ -609,6 +609,7 @@ class ExpenseController extends Controller
         Request $request,
         Expense $expense
     ) {
+        abort_if($expense->expense_advance_id,422,'This bill is settled against an expense advance and cannot be changed here.');
         $validated = $this->validateExpense(
             $request
         );
@@ -705,6 +706,7 @@ class ExpenseController extends Controller
      */
     public function destroy(Expense $expense)
     {
+        abort_if($expense->expense_advance_id,422,'This bill is settled against an expense advance and cannot be changed here.');
         $categoryId =
             $expense->expense_category_id;
 

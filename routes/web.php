@@ -359,6 +359,10 @@ Route::middleware('auth')->group(function () {
     | Contractors
     |--------------------------------------------------------------------------
     */
+    Route::get('/expense-advances', [\App\Http\Controllers\ExpenseAdvanceController::class, 'index'])->name('expense-advances.index');
+    Route::post('/expense-advances', [\App\Http\Controllers\ExpenseAdvanceController::class, 'store'])->name('expense-advances.store');
+    Route::post('/expense-advances/{advance}/settle', [\App\Http\Controllers\ExpenseAdvanceController::class, 'settle'])->name('expense-advances.settle');
+    Route::delete('/expense-advances/{advance}', [\App\Http\Controllers\ExpenseAdvanceController::class, 'destroy'])->name('expense-advances.destroy');
     Route::get('/contractor-advances', [\App\Http\Controllers\ContractorAdvanceController::class, 'index'])->name('contractor-advances.index');
     Route::post('/contractor-advances/batch', [\App\Http\Controllers\ContractorAdvanceController::class, 'batch'])->name('contractor-advances.batch');
     Route::delete('/contractor-advances/{advance}', [\App\Http\Controllers\ContractorAdvanceController::class, 'destroy'])->name('contractor-advances.destroy');
