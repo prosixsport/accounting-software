@@ -175,6 +175,9 @@ Route::middleware('auth')->group(function () {
     | Owner Funds
     |--------------------------------------------------------------------------
     */
+    Route::post('/funds-management/transactions/delete', [\App\Http\Controllers\FundsTransactionController::class, 'destroy'])->name('funds-management.transactions.delete');
+    Route::post('/salary-management/reset', [\App\Http\Controllers\FundsTransactionController::class, 'resetSalary'])->name('salary-management.reset');
+    Route::post('/loan-workers/{employee}/reset-legacy', [\App\Http\Controllers\FundsTransactionController::class, 'resetLegacyLoan'])->name('loan-workers.reset-legacy');
     Route::delete('/funds-management/receipts/{receipt}', [\App\Http\Controllers\FundsManagementController::class, 'destroyReceipt'])->name('funds-management.receipts.destroy');
     Route::put('/funds-management/returns/{id}', [\App\Http\Controllers\FundsManagementController::class, 'updateReturn'])->name('funds-management.returns.update');
     Route::delete('/funds-management/returns/{id}', [\App\Http\Controllers\FundsManagementController::class, 'destroyReturn'])->name('funds-management.returns.destroy');

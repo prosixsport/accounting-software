@@ -99,11 +99,12 @@
 @endforeach
 
 </tbody></table></details><p class="funds-note">Salary, contractor payments and expenses appear automatically after saving. Cash and bank are included in one combined balance.</p></section>
-<section id="panel-ledger" role="tabpanel" aria-labelledby="tab-ledger" hidden><div class="table-responsive"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Person / Purpose</th><th>Reference / User</th><th>Payment Method</th><th>Received</th><th>Paid</th><th>Balance</th><th>Action</th></tr></thead><tbody>
+<section id="panel-ledger" role="tabpanel" aria-labelledby="tab-ledger" hidden><form id="fund-delete-selected" method="post" action="{{ route('funds-management.transactions.delete') }}" onsubmit="return confirm('Correct/delete selected transactions? Recorded cash balances will change. Salary payments become Unpaid. Linked bill/loan protections still apply.');">@csrf<input type="hidden" name="month" value="{{ $month->format('Y-m') }}"><button class="btn btn-outline-danger mb-3">Delete Selected</button><small class="ms-2 text-muted">Select All applies to this month's displayed transactions.</small></form><div class="table-responsive"><table class="table"><thead><tr><th><input type="checkbox" id="fund-delete-all" aria-label="Select all displayed transactions"></th><th>Date</th><th>Type</th><th>Person / Purpose</th><th>Reference / User</th><th>Payment Method</th><th>Received</th><th>Paid</th><th>Balance</th><th>Action</th></tr></thead><tbody>
 
 @forelse($report['ledger'] as $row)
 
-<tr><td>{{ $row['date'] }}</td><td>{{ $row['type'] }}</td><td>{{ $row['party'] }}
+@php [$deleteSource,$deleteId]=explode('#',$row['reference']);$deleteRecord=\Illuminate\Support\Facades\DB::table($deleteSource)->find((int)$deleteId);$deleteToken=\Illuminate\Support\Facades\Crypt::encryptString(json_encode(['source'=>$deleteSource,'id'=>(int)$deleteId,'version'=>hash('sha256',json_encode($deleteRecord))])); @endphp
+<tr><td><input type="checkbox" class="fund-delete-check" form="fund-delete-selected" name="entries[]" value="{{ $deleteToken }}" aria-label="Select {{ $row['reference'] }}"></td><td>{{ $row['date'] }}</td><td>{{ $row['type'] }}</td><td>{{ $row['party'] }}
 @if($row['receiver'])
 <small class="d-block">Received by: {{ $row['receiver'] }}</small>
 
@@ -122,7 +123,7 @@
 
 @endif
 
-</td></tr>
+<form class="d-inline" method="post" action="{{ route('funds-management.transactions.delete') }}" onsubmit="return confirm('Correct/delete this recorded transaction?');">@csrf<input type="hidden" name="month" value="{{ $month->format('Y-m') }}"><input type="hidden" name="entries[]" value="{{ $deleteToken }}"><button class="btn btn-sm btn-outline-danger" title="Delete / reverse transaction"><i class="bi bi-trash"></i></button></form></td></tr>
 
 
 @empty
@@ -368,5 +369,6 @@ document.getElementById('fund-receive').showModal();
 (function(){const input=document.getElementById('funds-report-month');input.addEventListener('change',()=>{if(input.value&&input.reportValidity())input.form.requestSubmit();});const url=new URL(location.href);url.searchParams.set('month',{{ \Illuminate\Support\Js::from($month->format('Y-m')) }});history.replaceState(history.state,'',url);
 document.querySelectorAll('[data-week-category]').forEach(button=>button.addEventListener('click',()=>{const dialog=button.closest('dialog');dialog.querySelectorAll('[data-week-category]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));let count=0;dialog.querySelectorAll('[data-week-row]').forEach(row=>{row.hidden=button.dataset.weekCategory!=='all'&&row.dataset.weekRow!==button.dataset.weekCategory;if(!row.hidden)count++;});dialog.querySelector('[data-week-empty]').hidden=count>0;}));})();
 </script>
+<script>document.getElementById('fund-delete-all').addEventListener('change',function(){document.querySelectorAll('.fund-delete-check').forEach(c=>c.checked=this.checked);});</script>
 @endsection
 
