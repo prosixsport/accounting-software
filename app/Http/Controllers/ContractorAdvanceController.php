@@ -17,10 +17,11 @@ class ContractorAdvanceController extends Controller {
   abort_if($week && $week>(int)ceil($month->daysInMonth/7),422,'This month does not have that week.');
   $contractors=Contractor::with('department')->orderBy('name')->get();
   $balances=$contractors->mapWithKeys(fn($c)=>[$c->id=>(new ContractorAdvanceLedger)->available($c->id)]);
-  $advances=ContractorAdvance::with('contractor')->whereDate('advance_date','>=',$month->toDateString())->whereDate('advance_date','<=',$month->copy()->endOfMonth()->toDateString())->orderByDesc('advance_date')->orderByDesc('id')->get();
+  $allAdvances=ContractorAdvance::with('contractor')->orderBy('advance_date')->orderBy('id')->get();
+  $advances=$allAdvances->filter(fn($a)=>$a->advance_date->format('Y-m')===$month->format('Y-m'))->values();
   $used=DB::table('contractor_advance_allocations')->get()->groupBy('contractor_advance_id')->map(fn($rows)=>$rows->sum('amount'));
   $allocations=DB::table('contractor_advance_allocations')->join('contractor_bills','contractor_bills.id','=','contractor_advance_allocations.contractor_bill_id')->select('contractor_advance_allocations.*','contractor_bills.bill_no','contractor_bills.bill_date')->get()->groupBy('contractor_advance_id');
-  return view('contractor-advances.index',compact('contractors','balances','advances','used','allocations','month','week'));
+  return view('contractor-advances.index',compact('contractors','balances','advances','used','allocations','month','week','allAdvances'));
  }
  private function data(Request $request,bool $edit=false):array {return $request->validate(['contractor_id'=>['required','integer','exists:contractors,id'],'advance_date'=>['required','date_format:Y-m-d','before_or_equal:'.now('Asia/Karachi')->toDateString()],'amount'=>['required','regex:/^\d{1,11}(\.\d{1,2})?$/','numeric','min:0.01'],'remarks'=>['nullable','string','max:1000'],'submission_key'=>[$edit?'nullable':'required','uuid']]);}
  public function store(Request $request){abort_unless($request->user()->hasPermission('contractor_bills'),403);$data=$this->data($request);DB::transaction(function()use($data,$request){Contractor::whereKey($data['contractor_id'])->lockForUpdate()->firstOrFail();ContractorAdvance::firstOrCreate(['submission_key'=>$data['submission_key']],$data+['eligible_for_bills'=>true,'created_by'=>$request->user()->id,'advance_time'=>now('Asia/Karachi')->format('H:i:s')]);});return back()->with('success','Contractor advance saved. Funds balance updated.');}
