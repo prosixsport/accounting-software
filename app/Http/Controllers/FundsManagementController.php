@@ -15,12 +15,14 @@ class FundsManagementController extends Controller
         abort_if($month->format('Y-m')>$today->format('Y-m'),422,'Select the current or a previous month.');
         $request->session()->put('funds_management_month',$month->format('Y-m'));
         [$report,$warnings]=$this->buildReport($service,$today,$month);
+        $returnRecords=DB::table('fund_returns')->get()->keyBy('id');
+        $receiptRecords=\App\Models\FundReceipt::all()->keyBy('id');
         $revision=hash('sha256',json_encode($report));
         if($request->expectsJson())return response()->json(['revision'=>$revision]);
         $accessUsers=\App\Models\User::with('permissions')->get()->filter(fn($u)=>$u->hasPermission('owner_funds'));
         $editReceipt=$request->filled('edit') ? \App\Models\FundReceipt::findOrFail($request->validate(['edit'=>['required','integer','min:1']])['edit']) : null;
         $activity=DB::table('fund_activity')->orderByDesc('id')->paginate(30)->withQueryString();
-        return view('funds-management.index',compact('month','report','warnings','accessUsers','activity','editReceipt','revision'));
+        return view('funds-management.index',compact('month','report','warnings','accessUsers','activity','editReceipt','revision','returnRecords','receiptRecords'));
     }
     private function buildReport(FundsLedger $service, Carbon $today, Carbon $month): array
     {
@@ -82,6 +84,21 @@ class FundsManagementController extends Controller
             DB::table('fund_activity')->insert(['source'=>'fund_returns','source_id'=>$id,'user_id'=>$request->user()->id,'actor'=>$request->user()->name,'action'=>'created','before'=>null,'after'=>json_encode($data),'created_at'=>now()]);
         });
         return redirect()->route('funds-management.index',['month'=>$request->session()->get('funds_management_month',substr($data['return_date'],0,7))])->with('success','Cash return recorded. Remaining balance updated.');
+    }
+    public function updateReturn(Request $request,int $id){
+        abort_unless($request->user()->hasPermission('owner_funds'),403);
+        $data=$request->validate(['return_date'=>['required','date_format:Y-m-d','before_or_equal:'.now('Asia/Karachi')->toDateString()],'boss'=>['required','in:Boss Azeem,Boss Atif,Boss Kashif'],'returned_by'=>['required','string','max:255'],'amount'=>['required','regex:/^\d{1,13}(\.\d{1,2})?$/','numeric','min:0.01'],'notes'=>['nullable','string','max:2000'],'version'=>['required','string']]);
+        DB::transaction(function()use($request,$id,$data){$row=DB::table('fund_returns')->where('id',$id)->lockForUpdate()->first();abort_unless($row,404);if(!hash_equals(hash('sha256',json_encode($row)),$data['version']))throw \Illuminate\Validation\ValidationException::withMessages(['return'=>'Record changed. Reload before editing.']);unset($data['version']);DB::table('fund_returns')->where('id',$id)->update($data+['updated_at'=>now()]);$this->cashAudit($request,'fund_returns',$id,'updated',$row,DB::table('fund_returns')->find($id));});return back()->with('success','Cash return corrected. Funds recalculated.');
+    }
+    public function destroyReturn(Request $request,int $id){
+        abort_unless($request->user()->hasPermission('owner_funds'),403);$request->validate(['version'=>['required','string']]);
+        DB::transaction(function()use($request,$id){$row=DB::table('fund_returns')->where('id',$id)->lockForUpdate()->first();abort_unless($row,404);if(!hash_equals(hash('sha256',json_encode($row)),$request->input('version')))throw \Illuminate\Validation\ValidationException::withMessages(['return'=>'Record changed. Reload before deleting.']);DB::table('fund_returns')->where('id',$id)->delete();$this->cashAudit($request,'fund_returns',$id,'deleted',$row,null);});return back()->with('success','Mistaken cash return deleted. Funds recalculated.');
+    }
+    public function destroyReceipt(Request $request,\App\Models\FundReceipt $receipt){
+        abort_unless($request->user()->hasPermission('owner_funds'),403);$request->validate(['version'=>['required','string']]);DB::transaction(function()use($request,$receipt){$row=\App\Models\FundReceipt::whereKey($receipt->id)->lockForUpdate()->firstOrFail();if(!hash_equals(hash('sha256',json_encode($row->getAttributes())),$request->input('version')))throw \Illuminate\Validation\ValidationException::withMessages(['receipt'=>'Record changed. Reload before deleting.']);$row->delete();});return back()->with('success','Mistaken receipt removed. Funds recalculated; photo retained for audit history.');
+    }
+    private function cashAudit(Request $request,string $source,int $id,string $action,$before,$after):void{
+        DB::table('fund_activity')->insert(['source'=>$source,'source_id'=>$id,'user_id'=>$request->user()->id,'actor'=>$request->user()->name,'action'=>$action,'before'=>$before?json_encode($before):null,'after'=>$after?json_encode($after):null,'created_at'=>now()]);
     }
     private function receiptData(Request $request, bool $editing=false): array
     {

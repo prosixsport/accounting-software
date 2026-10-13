@@ -175,6 +175,11 @@ Route::middleware('auth')->group(function () {
     | Owner Funds
     |--------------------------------------------------------------------------
     */
+    Route::delete('/funds-management/receipts/{receipt}', [\App\Http\Controllers\FundsManagementController::class, 'destroyReceipt'])->name('funds-management.receipts.destroy');
+    Route::put('/funds-management/returns/{id}', [\App\Http\Controllers\FundsManagementController::class, 'updateReturn'])->name('funds-management.returns.update');
+    Route::delete('/funds-management/returns/{id}', [\App\Http\Controllers\FundsManagementController::class, 'destroyReturn'])->name('funds-management.returns.destroy');
+    Route::put('/worker-loans/{id}', [\App\Http\Controllers\LoanWorkerController::class, 'update'])->name('loan-workers.update');
+    Route::delete('/worker-loans/{id}', [\App\Http\Controllers\LoanWorkerController::class, 'destroy'])->name('loan-workers.destroy');
     Route::put('/funds-management/receipts/{receipt}', [\App\Http\Controllers\FundsManagementController::class, 'update'])->name('funds-management.update');
     Route::post('/funds-management/returns', [\App\Http\Controllers\FundsManagementController::class, 'returnCash'])->name('funds-management.returns.store');
     Route::post('/funds-management/receipts', [\App\Http\Controllers\FundsManagementController::class, 'store'])->name('funds-management.store');

@@ -89,7 +89,9 @@
 
 @endif
 
-</td><th>Rs {{ $money($receiptRow['in']) }}</th><td>@if($receiptRow['edit_url'])<a class="btn btn-sm btn-outline-dark" href="{{ $receiptRow['edit_url'] }}" aria-label="Edit funds receipt"><i class="bi bi-pencil"></i> Edit</a>@endif</td></tr>
+</td><th>Rs {{ $money($receiptRow['in']) }}</th><td>@if($receiptRow['edit_url'])<a class="btn btn-sm btn-outline-dark" href="{{ $receiptRow['edit_url'] }}" aria-label="Edit funds receipt"><i class="bi bi-pencil"></i> Edit</a>@endif
+@php $receiptId=(int)explode('#',$receiptRow['reference'])[1];$receiptModel=$receiptRecords->get($receiptId); @endphp
+@if($receiptModel)<form class="d-inline" method="post" action="{{ route('funds-management.receipts.destroy',$receiptModel) }}" onsubmit="return confirm('Delete this mistaken receipt? This reduces the recorded funds received.');">@csrf @method('DELETE')<input type="hidden" name="version" value="{{ hash('sha256',json_encode($receiptModel->getAttributes())) }}"><button class="btn btn-sm btn-outline-danger" title="Delete receipt"><i class="bi bi-trash"></i></button></form>@endif</td></tr>
 
 @endif
 
@@ -133,11 +135,14 @@
 
 
 </tbody><tfoot><tr><th colspan="5">Totals</th><th>{{ $money($report['received']) }}</th><th>{{ $money($report['spent']+$report['returned']) }}</th><th>{{ $money($report['closing']) }}</th></tr></tfoot></table></div></section>
-<section id="panel-returns" role="tabpanel" aria-labelledby="tab-returns" hidden><h5>Returned Cash Register</h5><p class="funds-note">Actual cash handed back to a boss. This reduces the remaining balance.</p><table class="table"><thead><tr><th>Date</th><th>Returned To</th><th>Amount</th><th>Entry By</th><th>Remarks</th></tr></thead><tbody>
+<section id="panel-returns" role="tabpanel" aria-labelledby="tab-returns" hidden><h5>Returned Cash Register</h5><p class="funds-note">Actual cash handed back to a boss. This reduces the remaining balance.</p><table class="table"><thead><tr><th>Date</th><th>Returned To</th><th>Amount</th><th>Entry By</th><th>Remarks</th><th>Edit / Delete</th></tr></thead><tbody>
 @forelse(array_filter($report['ledger'],fn($e)=>$e['type']==='Cash returned to boss') as $entry)
-<tr><td>{{ $entry['date'] }}</td><td>{{ $entry['party'] }}</td><th>Rs {{ $money($entry['out']) }}</th><td>{{ $entry['actor'] }}</td><td>{{ $entry['description'] }}</td></tr>
+<tr><td>{{ $entry['date'] }}</td><td>{{ $entry['party'] }}</td><th>Rs {{ $money($entry['out']) }}</th><td>{{ $entry['actor'] }}</td><td>{{ $entry['description'] }}</td><td>
+@php $returnId=(int)explode('#',$entry['reference'])[1];$returnRecord=$returnRecords->get($returnId); @endphp
+@if($returnRecord)<button class="btn btn-sm btn-outline-dark" type="button" onclick="document.getElementById('return-edit-{{ $returnId }}').showModal()" title="Edit cash return"><i class="bi bi-pencil"></i></button><form class="d-inline" method="post" action="{{ route('funds-management.returns.destroy',$returnId) }}" onsubmit="return confirm('Delete this mistaken cash return? Remaining Funds will increase.');">@csrf @method('DELETE')<input type="hidden" name="version" value="{{ hash('sha256',json_encode($returnRecord)) }}"><button class="btn btn-sm btn-outline-danger" title="Delete cash return"><i class="bi bi-trash"></i></button></form>@endif
+</td></tr>
 @empty
-<tr><td colspan="5">No cash returns in this month.</td></tr>
+<tr><td colspan="6">No cash returns in this month.</td></tr>
 @endforelse
 </tbody></table></section>
 <section id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" hidden>
@@ -211,6 +216,11 @@ $changed=array_filter($fields,fn($key)=>!in_array($key,['created_at','updated_at
 
 </section>
 </div></div>
+@foreach($returnRecords as $cashReturn)
+@if(substr($cashReturn->return_date,0,7)===$month->format('Y-m'))
+<dialog id="return-edit-{{ $cashReturn->id }}" class="fund-dialog"><div class="dialog-head"><h4>Edit Cash Return #{{ $cashReturn->id }}</h4><button type="button" onclick="this.closest('dialog').close()">×</button></div><form method="post" action="{{ route('funds-management.returns.update',$cashReturn->id) }}" class="row g-3">@csrf @method('PUT')<input type="hidden" name="version" value="{{ hash('sha256',json_encode($cashReturn)) }}"><div class="col-md-6"><label>Date</label><input class="form-control" name="return_date" type="date" value="{{ $cashReturn->return_date }}" max="{{ now('Asia/Karachi')->toDateString() }}" required></div><div class="col-md-6"><label>Returned To</label><select class="form-select" name="boss" required>@foreach(['Boss Azeem','Boss Atif','Boss Kashif'] as $boss)<option @selected($cashReturn->boss===$boss)>{{ $boss }}</option>@endforeach</select></div><div class="col-md-6"><label>Amount</label><input class="form-control" name="amount" type="number" min="0.01" step="0.01" value="{{ $cashReturn->amount }}" required></div><div class="col-md-6"><label>Returned By</label><input class="form-control" name="returned_by" maxlength="255" value="{{ $cashReturn->returned_by??'' }}" required></div><div class="col-12"><label>Remarks</label><textarea class="form-control" name="notes" maxlength="2000">{{ $cashReturn->notes }}</textarea></div><div class="col-12"><button class="btn btn-success">Save Changes</button></div></form></dialog>
+@endif
+@endforeach
 <dialog id="fund-return" class="fund-dialog"><div class="dialog-head"><h4>Return Cash to Boss</h4><button type="button" data-close aria-label="Close">×</button></div>
 @if(old('return_date') && $errors->any())
 <div class="alert alert-danger">{{ $errors->first() }}</div>
