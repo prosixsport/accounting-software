@@ -280,7 +280,7 @@
     </table>
 
     <h5 class="fw-bold mt-4">
-        Advance / Payment Details
+        Actual Cash Payment Details
     </h5>
 
     <table class="table table-sm table-bordered">
