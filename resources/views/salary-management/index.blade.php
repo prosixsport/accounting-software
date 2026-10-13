@@ -137,7 +137,7 @@
 
                 <div><label class="sm-label" for="salary-month">Salary Month</label><input class="sm-control" id="salary-month" type="month" name="month" value="{{ $monthKey }}" required></div>
 
-                <button type="submit" class="sm-btn sm-btn-primary">Load</button>
+                
                 <small id="sm-current-clock" class="sm-hint"></small>
 
             </form>
@@ -170,10 +170,11 @@
 
             <select id="salary-department" class="sm-control" aria-label="Filter department"><option value="">All Departments</option>@foreach($departments as $department)<option value="{{ $department }}">{{ $department }}</option>@endforeach</select>
 
-            <select id="salary-status" class="sm-control" aria-label="Filter salary records"><option value="">All Salary Records</option><option value="saved">Saved</option><option value="draft">Not Saved</option></select>
+            <select id="salary-status" hidden aria-label="Salary record filter"><option value="">All Records</option><option value="saved">Saved</option><option value="draft">Not Saved</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option></select>
 
         </div>
 
+        <div class="sm-clean-tabs"><div><span>Workers:</span><button type="button" data-active-tab="" aria-pressed="true">All</button><button type="button" data-active-tab="active">Active</button><button type="button" data-active-tab="inactive">Inactive</button></div><div><span>Salary:</span><button type="button" data-record-tab="" aria-pressed="true">All</button><button type="button" data-record-tab="paid">Paid</button><button type="button" data-record-tab="unpaid">Unpaid</button><button type="button" data-record-tab="saved">Saved</button><button type="button" data-record-tab="draft">Not Saved</button></div></div>
         <form id="salary-bulk-print" method="get" target="_blank" action="{{ route('salary-management.print') }}" style="padding:16px 20px;border-top:1px solid var(--sm-line)">
             <input type="hidden" name="month" value="{{ $monthKey }}">
             <input type="hidden" name="scope" value="selected">
@@ -183,7 +184,7 @@
                 <button type="submit" id="salary-print-selected" class="sm-btn sm-btn-primary" disabled>Print Selected (0)</button>
 <button type="button" class="sm-btn" data-bulk-status="paid" disabled>Mark Selected Paid</button>
 <button type="button" class="sm-btn" data-bulk-status="unpaid" disabled>Mark Selected Unpaid</button>
-<button type="button" class="sm-btn" data-bulk-status="paid" data-date-only="1" disabled>Correct Selected Payment Dates</button>
+
             </div>
             <p class="sm-hint mb-0 mt-2">Select saved workers to print individual slips or update their payment status.</p>
         </form>
@@ -207,7 +208,7 @@
 
                 @endphp
 
-                <tr class="sm-employee-row" data-search="{{ $searchText }}" data-department="{{ $employee->department ?? '' }}" data-status="{{ $row ? 'saved' : 'draft' }}">
+                <tr class="sm-employee-row" data-active="{{ $employee->status==='inactive'?'inactive':'active' }}" data-payment="{{ $row && ($figures['net']+(float)$row->overdue)>0 && (float)$row->paid_amount>=round($figures['net']+(float)$row->overdue,2)?'paid':'unpaid' }}" data-search="{{ $searchText }}" data-department="{{ $employee->department ?? '' }}" data-status="{{ $row ? 'saved' : 'draft' }}">
 
                     <td><input type="checkbox" class="sm-print-check" name="employee_ids[]" form="salary-bulk-print" value="{{ $employee->id }}" aria-label="Select {{ $employee->name }} for print" @unless($row) disabled @endunless></td><td><div class="sm-person">@php $person = $employee; $sizeClass = ''; @endphp
 
@@ -503,7 +504,7 @@
 <script>
 window.chooseSalaryPaymentDate=function(title){return new Promise(resolve=>{
  const dialog=document.getElementById('sm-payment-date-dialog'),input=document.getElementById('sm-actual-payment-date');document.getElementById('sm-payment-date-title').textContent=title;
- input.value='';let answer=null;
+ input.value={{ \Illuminate\Support\Js::from(now('Asia/Karachi')->toDateString()) }};let answer=null;
  document.getElementById('sm-date-confirm').onclick=()=>{if(input.reportValidity()){answer=input.value;dialog.close();}};
  document.getElementById('sm-date-cancel').onclick=()=>dialog.close();dialog.addEventListener('close',()=>resolve(answer),{once:true});dialog.showModal();
 });};
@@ -552,7 +553,7 @@ document.addEventListener('click',async event=>{
 
                 && (!department.value || row.dataset.department === department.value)
 
-                && (!status.value || row.dataset.status === status.value);
+                && (!status.value || (['paid','unpaid'].includes(status.value)?row.dataset.payment===status.value:row.dataset.status===status.value)) && (!root.dataset.activeFilter||row.dataset.active===root.dataset.activeFilter);
 
             row.hidden = !matches;
             if (!matches) row.querySelector('.sm-print-check').checked = false;
@@ -1013,7 +1014,7 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
   const paid=button.dataset.bulkStatus==='paid';
   const dateOnly=button.dataset.dateOnly==='1';
   const paymentDate=paid?await window.chooseSalaryPaymentDate(dateOnly?'Correct Payment Date':'Confirm Salary Payment'):null;if(paid&&!paymentDate)return;
-  if(!dateOnly&&!confirm(paid?'Confirm these '+ids.length+' workers received their final salary?':'Mark these '+ids.length+' workers Unpaid and reverse recorded final payments?'))return;
+  if(!paid&&!confirm('Mark these '+ids.length+' workers Unpaid and reverse recorded payments?'))return;
   const form=document.createElement('form');form.method='post';form.action={{ \Illuminate\Support\Js::from(route('salary-management.payment-status')) }};
   const fields={_token:{{ \Illuminate\Support\Js::from(csrf_token()) }},_method:'PATCH',month:{{ \Illuminate\Support\Js::from($monthKey) }},payment_status:button.dataset.bulkStatus,date_only:dateOnly?'1':'0'};if(paid)fields.payment_date=paymentDate;
   for(const [name,value] of Object.entries(fields)){const input=document.createElement('input');input.type='hidden';input.name=name;input.value=value;form.appendChild(input);}
@@ -1023,6 +1024,9 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
 })();
 </script>
 
+<style>.sm-clean-tabs{display:flex;gap:22px;flex-wrap:wrap;padding:10px 20px;border-top:1px solid #e3e9ed}.sm-clean-tabs>div{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.sm-clean-tabs span{font-size:12px;color:#667}.sm-clean-tabs button{border:1px solid #dce3e8;padding:8px 13px;background:white;color:#345;border-radius:6px;font-size:12px}.sm-clean-tabs button[aria-pressed=true]{background:#176e61;color:white;border-color:#176e61}</style>
+<script>(()=>{const status=document.getElementById('salary-status'),root=document.querySelector('.salary-manager'),month=document.querySelector('.sm-month-form input[name="month"]'),key='salary-active-tab-'+month.value;root.dataset.activeFilter=sessionStorage.getItem(key)||'';function activePaint(){document.querySelectorAll('[data-active-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.activeTab===root.dataset.activeFilter)));}document.querySelectorAll('[data-active-tab]').forEach(b=>b.onclick=()=>{root.dataset.activeFilter=b.dataset.activeTab;sessionStorage.setItem(key,b.dataset.activeTab);activePaint();status.dispatchEvent(new Event('change'));});document.querySelectorAll('[data-record-tab]').forEach(b=>b.onclick=()=>{status.value=b.dataset.recordTab;status.dispatchEvent(new Event('change'));paint();});function paint(){document.querySelectorAll('[data-record-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.recordTab===status.value)));}status.addEventListener('change',paint);month.addEventListener('change',()=>month.form.requestSubmit());requestAnimationFrame(()=>{activePaint();paint();status.dispatchEvent(new Event('change'));});})();</script>
+<script>(()=>{if('scrollRestoration' in history)history.scrollRestoration='manual';const key='account-page-position:'+location.pathname+location.search;const surfaces=()=>Array.from(document.querySelectorAll('main,.sm-table-wrap'));function save(){sessionStorage.setItem(key,JSON.stringify({x:scrollX,y:scrollY,containers:surfaces().map(e=>({top:e.scrollTop,left:e.scrollLeft}))}));}addEventListener('pagehide',save);document.addEventListener('submit',save,true);let timer;addEventListener('scroll',()=>{clearTimeout(timer);timer=setTimeout(save,150);},true);try{const value=JSON.parse(sessionStorage.getItem(key)||'null');if(value)requestAnimationFrame(()=>requestAnimationFrame(()=>{scrollTo(value.x,value.y);surfaces().forEach((e,i)=>{if(value.containers[i]){e.scrollTop=value.containers[i].top;e.scrollLeft=value.containers[i].left;}});}));}catch(e){}})();</script>
 @endsection
 
 <style>
