@@ -31,7 +31,8 @@ class ExpenseController extends Controller
             ? (int) $request->expense_sub_category_id
             : null;
 
-        $period = $request->get('period', 'month');
+        $request->validate(['month'=>['nullable','date_format:Y-m']]);
+        $period = $request->get('period', $request->session()->get('expenses_period','month'));
 
         if (!in_array($period, [
             'day',
@@ -50,8 +51,9 @@ class ExpenseController extends Controller
 
         $selectedMonth = $request->get(
             'month',
-            now()->format('Y-m')
+            $request->session()->get('expenses_month',now('Asia/Karachi')->format('Y-m'))
         );
+        $request->session()->put(['expenses_month'=>$selectedMonth,'expense_advances_month'=>$selectedMonth,'expenses_period'=>$period]);
 
         $selectedYear = (int) $request->get(
             'year',
@@ -368,6 +370,12 @@ class ExpenseController extends Controller
             ->sortBy('date')
             ->values();
 
+        $weeklyAdvances=collect();$advanceSettlements=collect();
+        if(\Illuminate\Support\Facades\Schema::hasTable('expense_advances') && \Illuminate\Support\Facades\Schema::hasColumn('expenses','expense_advance_id')){
+            $weeklyAdvances=\App\Models\ExpenseAdvance::whereYear('advance_date',substr($selectedMonth,0,4))->whereMonth('advance_date',substr($selectedMonth,5,2))->orderBy('advance_date')->orderBy('id')->get();
+            $advanceSettlements=Expense::whereIn('expense_advance_id',$weeklyAdvances->pluck('id'))->get()->groupBy('expense_advance_id');
+        }
+
         return view('expenses.index', compact(
             'expenses',
             'categories',
@@ -389,7 +397,9 @@ class ExpenseController extends Controller
             'chequeTotal',
             'expenseCount',
             'averageExpense',
-            'dailyTotals'
+            'dailyTotals',
+            'weeklyAdvances',
+            'advanceSettlements'
         ));
     }
 
@@ -539,9 +549,7 @@ class ExpenseController extends Controller
 
                 'period' => 'month',
 
-                'month' => Carbon::parse(
-                    $validated['expense_date']
-                )->format('Y-m'),
+                'month' => $request->session()->get('expenses_month',Carbon::parse($validated['expense_date'])->format('Y-m')),
             ])
             ->with(
                 'success',
@@ -691,9 +699,7 @@ class ExpenseController extends Controller
 
                 'period' => 'month',
 
-                'month' => Carbon::parse(
-                    $expense->expense_date
-                )->format('Y-m'),
+                'month' => $request->session()->get('expenses_month',Carbon::parse($expense->expense_date)->format('Y-m')),
             ])
             ->with(
                 'success',
@@ -704,7 +710,7 @@ class ExpenseController extends Controller
     /**
      * Delete expense.
      */
-    public function destroy(Expense $expense)
+    public function destroy(Request $request, Expense $expense)
     {
         abort_if($expense->expense_advance_id,422,'This bill is settled against an expense advance and cannot be changed here.');
         $categoryId =
@@ -733,7 +739,7 @@ class ExpenseController extends Controller
 
                 'period' => 'month',
 
-                'month' => $expenseMonth,
+                'month' => $request->session()->get('expenses_month',$expenseMonth),
             ])
             ->with(
                 'success',

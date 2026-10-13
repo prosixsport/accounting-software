@@ -104,7 +104,7 @@
                             <input
                                 type="date"
                                 name="expense_date"
-                                value="{{ old('expense_date', date('Y-m-d')) }}"
+                                value="{{ old('expense_date', session('expenses_month',now('Asia/Karachi')->format('Y-m'))===now('Asia/Karachi')->format('Y-m')?now('Asia/Karachi')->toDateString():session('expenses_month').'-01') }}"
                                 class="form-control styled-input @error('expense_date') is-invalid @enderror"
                                 required
                             >

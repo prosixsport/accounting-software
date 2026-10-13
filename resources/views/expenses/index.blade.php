@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<a class="btn btn-outline-success mb-3" href="{{ route('expense-advances.index',['month'=>request('month',now('Asia/Karachi')->format('Y-m'))]) }}">Weekly Expense Advances</a>
+<a class="btn btn-outline-success mb-3" href="{{ route('expense-advances.index',['month'=>$selectedMonth]) }}">Weekly Expense Advances</a>
 
 @php
     function expenseIcon($text)
@@ -62,6 +62,14 @@
             {{ session('success') }}
         </div>
     @endif
+
+    <section class="bg-white border rounded p-3 mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2"><div><h5 class="mb-1">{{ \Illuminate\Support\Carbon::parse($selectedMonth.'-01')->format('F Y') }} — Weekly Expense Advances</h5><small class="text-muted">All recipients / categories. Advances are cash handed out; settled bills appear separately in Expense Records.</small></div><a class="btn btn-sm btn-outline-success" href="{{ route('expense-advances.index',['month'=>$selectedMonth]) }}">Manage / View Details</a></div>
+        @php $eaMoney=fn($n)=>\App\Services\FundsLedger::money($n);$eaPaid=$weeklyAdvances->sum(fn($a)=>\App\Services\FundsLedger::paise((string)$a->amount));$eaUsed=$weeklyAdvances->sum(fn($a)=>$advanceSettlements->get($a->id,collect())->sum(fn($e)=>\App\Services\FundsLedger::paise((string)$e->amount))); @endphp
+        <div class="d-flex flex-wrap gap-4 mb-3 small"><span>Advance Given: <strong>Rs {{ $eaMoney($eaPaid) }}</strong></span><span>Settled to Date: <strong>Rs {{ $eaMoney($eaUsed) }}</strong></span><span>Remaining with Recipients: <strong>Rs {{ $eaMoney($eaPaid-$eaUsed) }}</strong></span></div>
+        <div class="d-flex flex-wrap gap-2 mb-3">@for($ew=1;$ew<=ceil(\Illuminate\Support\Carbon::parse($selectedMonth.'-01')->daysInMonth/7);$ew++)@php $ewTotal=$weeklyAdvances->filter(fn($a)=>intdiv($a->advance_date->day-1,7)+1===$ew)->sum(fn($a)=>\App\Services\FundsLedger::paise((string)$a->amount)); @endphp<span class="border rounded px-3 py-2 small">Week {{ str_pad($ew,2,'0',STR_PAD_LEFT) }}: <strong>Rs {{ $eaMoney($ewTotal) }}</strong></span>@endfor</div>
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>Date</th><th>Week</th><th>Person</th><th>Purpose</th><th>Advance Given</th><th>Remaining to Date</th></tr></thead><tbody>@forelse($weeklyAdvances as $ea)@php $eaRemaining=\App\Services\FundsLedger::paise((string)$ea->amount)-$advanceSettlements->get($ea->id,collect())->sum(fn($e)=>\App\Services\FundsLedger::paise((string)$e->amount)); @endphp<tr><td>{{ $ea->advance_date->format('d M Y') }}</td><td>Week {{ intdiv($ea->advance_date->day-1,7)+1 }}</td><td>{{ $ea->recipient_name }}</td><td>{{ $ea->purpose }}</td><td>Rs {{ number_format($ea->amount,2) }}</td><td>Rs {{ $eaMoney($eaRemaining) }}</td></tr>@empty<tr><td colspan="6" class="text-center text-muted p-3">No weekly advances recorded in this month.</td></tr>@endforelse</tbody></table></div>
+    </section>
 
     {{-- Period Filter --}}
     <div class="period-filter-card">
