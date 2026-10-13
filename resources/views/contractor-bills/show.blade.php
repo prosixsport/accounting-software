@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+<div class="alert alert-light border"><strong>Advance Adjusted:</strong> Rs {{ number_format($contractorBill->advance_adjusted??0,2) }} · <strong>Cash Paid:</strong> Rs {{ number_format(max(0,$contractorBill->paid_amount-($contractorBill->advance_adjusted??0)),2) }} · <strong>Remaining:</strong> Rs {{ number_format($contractorBill->balance,2) }}<small class="d-block">Advance adjustment is already paid cash. Only cash payment entries below reduce Funds again.</small></div>
 
 @php
     $contractor = $contractorBill->contractor;

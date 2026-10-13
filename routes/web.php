@@ -361,6 +361,10 @@ Route::middleware('auth')->group(function () {
     | Contractors
     |--------------------------------------------------------------------------
     */
+    Route::get('/contractor-advances', [\App\Http\Controllers\ContractorAdvanceController::class, 'index'])->name('contractor-advances.index');
+    Route::post('/contractor-advances', [\App\Http\Controllers\ContractorAdvanceController::class, 'store'])->name('contractor-advances.store');
+    Route::post('/contractor-advances/{advance}/verify', [\App\Http\Controllers\ContractorAdvanceController::class, 'verify'])->name('contractor-advances.verify');
+    Route::put('/contractor-advances/{advance}', [\App\Http\Controllers\ContractorAdvanceController::class, 'update'])->name('contractor-advances.update');
     Route::resource(
         'contractors',
         ContractorController::class

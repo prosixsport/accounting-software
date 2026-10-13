@@ -48,7 +48,8 @@ class FundsLedger
         $contractors=DB::table('contractors')->pluck('name','id');
         foreach (DB::table('contractor_advances')->get() as $r) $add('contractor_advances',$r->id,$r->advance_date,'Contractor advance',$contractors[$r->contractor_id]??null,$r->amount,false,$r->remarks);
         foreach (DB::table('contractor_bill_payments')->join('contractor_bills','contractor_bills.id','=','contractor_bill_payments.contractor_bill_id')->select('contractor_bill_payments.*','contractor_bills.contractor_id','contractor_bills.bill_no')->get() as $r) $add('contractor_bill_payments',$r->id,$r->payment_date,'Contractor bill paid',$contractors[$r->contractor_id]??null,$r->amount,false,$r->bill_no.' · '.$r->remarks);
-        foreach (DB::table('expenses')->get() as $r) $add('expenses',$r->id,$r->expense_date,'Expense / bill',$r->vendor_name,$r->amount,false,$r->description,$r->payment_method);
+        $expenseCategories=DB::table('expense_categories')->pluck('name','id');
+        foreach (DB::table('expenses')->get() as $r) $add('expenses',$r->id,$r->expense_date,'Expense / bill',$r->vendor_name,$r->amount,false,trim(($expenseCategories[$r->expense_category_id??0]??($r->category??'' )).' · '.($r->description??''),' ·'),$r->payment_method);
         $customers=DB::table('customers')->pluck('customer_name','id');
         foreach (DB::table('payments')->get() as $r) $add('payments',$r->id,$r->payment_date,'Customer receipt',$customers[$r->customer_id]??null,$r->amount,true,$r->payment_no,$r->payment_method);
         $receipts=DB::table('fund_receipts')->get()->keyBy('id');
@@ -60,16 +61,26 @@ class FundsLedger
             if($source==='fund_receipts') {
                 $receipt=$receipts[$id]; $entry['receiver']=$receipt->receiver_name;
                 $entry['photo']=$receipt->receiver_photo;
-                $entry['edit_url']=route('funds-management.index',['edit'=>$id]);
+                $entry['edit_url']=route('funds-management.index',['month'=>substr($entry['date'],0,7),'edit'=>$id]);
             } elseif($source==='expenses') $entry['edit_url']=route('expenses.edit',$id);
             elseif($source==='payments') $entry['edit_url']=route('payments.edit',$id);
             elseif($source==='payrolls') $entry['edit_url']=route('payrolls.edit',$id);
             elseif(in_array($source,['salary_management_rows','salary_management_advances'])) $entry['edit_url']=route('salary-management.index',['month'=>substr($entry['date'],0,7)]);
-            elseif(in_array($source,['contractor_bill_payments','contractor_advances'])) $entry['edit_url']=route('contractor-bills.index');
+            elseif($source==='contractor_advances') $entry['edit_url']=route('contractor-advances.index');
+            elseif($source==='contractor_bill_payments') $entry['edit_url']=route('contractor-bills.index');
         }
         unset($entry);
         usort($entries,fn($a,$b)=>[$a['date'],$a['reference']]<=>[$b['date'],$b['reference']]);
         return $entries;
+    }
+
+    public static function category(array $entry):string {
+        [$source]=explode('#',$entry['reference']);
+        if(in_array($source,['salary_management_rows','salary_management_advances','employee_advances','payrolls']))return 'salary';
+        if($source==='contractor_advances')return 'advances';
+        if($source==='contractor_bill_payments')return 'bills';
+        if($source==='expenses')return 'expenses';
+        return 'other';
     }
 
     public function review(array $entries): array
@@ -98,7 +109,7 @@ class FundsLedger
             if($entry['date']>$end){$future[]=$entry;continue;}
             $received+=$entry['in'];$spent+=$entry['out'];$entry['balance']=$opening+$received-$spent;$ledger[]=$entry;
             if(in_array($entry['type'],['Boss funds','Legacy funds'],true))$bosses[$entry['party']]=($bosses[$entry['party']]??0)+$entry['in'];
-            $categories[$entry['type']]=($categories[$entry['type']]??0)+$entry['out'];
+            if($entry['out']>0)$categories[$entry['type']]=($categories[$entry['type']]??0)+$entry['out'];
         }
         return compact('opening','received','spent','ledger','bosses','categories','future','end')+['available'=>$opening+$received,'closing'=>$opening+$received-$spent];
     }

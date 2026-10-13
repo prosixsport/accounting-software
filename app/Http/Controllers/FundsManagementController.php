@@ -11,11 +11,14 @@ class FundsManagementController extends Controller
         abort_unless($request->user()->hasPermission('owner_funds'),403);
         $today=now('Asia/Karachi');
         $data=$request->validate(['month'=>['nullable','date_format:Y-m']]);
-        $month=Carbon::createFromFormat('!Y-m',$data['month']??$today->format('Y-m'))->startOfMonth();
+        $month=Carbon::createFromFormat('!Y-m',$data['month']??$request->session()->get('funds_management_month',$today->format('Y-m')))->startOfMonth();
         abort_if($month->format('Y-m')>$today->format('Y-m'),422,'Select the current or a previous month.');
+        $request->session()->put('funds_management_month',$month->format('Y-m'));
         [$report,$warnings]=DB::transaction(function() use($service,$today,$month){
             $entries=$service->entries();
             $report=$service->month($entries,$month,$today);
+            $report['all_balance']=0;
+            foreach($entries as $entry)if($entry['date']<=$today->toDateString())$report['all_balance']+=$entry['in']-$entry['out'];
             $report['returned']=0;
             foreach($report['ledger'] as $entry) if($entry['type']==='Cash returned to boss') $report['returned']+=$entry['out'];
             $report['spent']-=$report['returned'];
@@ -33,10 +36,12 @@ class FundsManagementController extends Controller
             $report['weeks']=$weeks;
             return [$report,$service->review($report['ledger'])];
         });
+        $revision=hash('sha256',json_encode($report));
+        if($request->expectsJson())return response()->json(['revision'=>$revision]);
         $accessUsers=\App\Models\User::with('permissions')->get()->filter(fn($u)=>$u->hasPermission('owner_funds'));
         $editReceipt=$request->filled('edit') ? \App\Models\FundReceipt::findOrFail($request->validate(['edit'=>['required','integer','min:1']])['edit']) : null;
         $activity=DB::table('fund_activity')->orderByDesc('id')->paginate(30)->withQueryString();
-        return view('funds-management.index',compact('month','report','warnings','accessUsers','activity','editReceipt'));
+        return view('funds-management.index',compact('month','report','warnings','accessUsers','activity','editReceipt','revision'));
     }
     public function returnCash(Request $request)
     {
@@ -49,7 +54,7 @@ class FundsManagementController extends Controller
             $id=DB::table('fund_returns')->insertGetId($data+['created_by'=>$request->user()->id,'created_at'=>now(),'updated_at'=>now()]);
             DB::table('fund_activity')->insert(['source'=>'fund_returns','source_id'=>$id,'user_id'=>$request->user()->id,'actor'=>$request->user()->name,'action'=>'created','before'=>null,'after'=>json_encode($data),'created_at'=>now()]);
         });
-        return redirect()->route('funds-management.index',['month'=>substr($data['return_date'],0,7)])->with('success','Cash return recorded. Remaining balance updated.');
+        return redirect()->route('funds-management.index',['month'=>$request->session()->get('funds_management_month',substr($data['return_date'],0,7))])->with('success','Cash return recorded. Remaining balance updated.');
     }
     private function receiptData(Request $request, bool $editing=false): array
     {
@@ -68,14 +73,14 @@ class FundsManagementController extends Controller
         abort_unless($request->user()->hasPermission('owner_funds'),403);
         $data=$this->receiptData($request);
         $existing=\App\Models\FundReceipt::where('submission_key',$data['submission_key'])->first();
-        if($existing) return redirect()->route('funds-management.index')->with('success','Receipt already saved.');
+        if($existing) return redirect()->route('funds-management.index',['month'=>$request->session()->get('funds_management_month',now('Asia/Karachi')->format('Y-m'))])->with('success','Receipt already saved.');
         $path=$request->file('receiver_photo')->store('funds/receivers','public');
         $data['receiver_photo']=$path;
         try {
             $receipt=DB::transaction(fn()=>\App\Models\FundReceipt::firstOrCreate(['submission_key'=>$data['submission_key']],$data+['created_by'=>$request->user()->id]));
             if($receipt->receiver_photo!==$path) \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
         } catch(\Throwable $e) { \Illuminate\Support\Facades\Storage::disk('public')->delete($path); throw $e; }
-        return redirect()->route('funds-management.index')->with('success','Cash receipt saved with receiver and photo.');
+        return redirect()->route('funds-management.index',['month'=>$request->session()->get('funds_management_month',now('Asia/Karachi')->format('Y-m'))])->with('success','Cash receipt saved with receiver and photo.');
     }
     public function update(Request $request, \App\Models\FundReceipt $receipt)
     {
@@ -94,6 +99,6 @@ class FundsManagementController extends Controller
             });
         } catch(\Throwable $e) { if($path) \Illuminate\Support\Facades\Storage::disk('public')->delete($path); throw $e; }
         // Retain earlier photos: activity history still references them.
-        return redirect()->route('funds-management.index')->with('success','Receipt corrected. Balance updated and change recorded.');
+        return redirect()->route('funds-management.index',['month'=>$request->session()->get('funds_management_month',now('Asia/Karachi')->format('Y-m'))])->with('success','Receipt corrected. Balance updated and change recorded.');
     }
 }

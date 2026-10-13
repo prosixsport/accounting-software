@@ -597,7 +597,7 @@
         || request()->routeIs('contractor-items.*')
         || request()->routeIs('contractor-bills.*')
         || request()->routeIs('contractor-departments.*')
-        || request()->routeIs('contractor-machines.*');
+        || request()->routeIs('contractor-machines.*') || request()->routeIs('contractor-advances.*');
     $biometricMenuOpen =
         request()->routeIs('biometric.*')
         || request()->routeIs('salary-verifications.*');
@@ -871,6 +871,7 @@
                             </a>
                         @endif
                         @if($can('contractor_bills'))
+                            <a href="{{ route('contractor-advances.index') }}" class="sub-link {{ request()->routeIs('contractor-advances.*') ? 'active' : '' }}">Contractor Advances</a>
                             <a href="{{ route('contractor-bills.index') }}"
                                class="sub-link {{ request()->routeIs('contractor-bills.*') ? 'active' : '' }}">
                                 Contractor Bills

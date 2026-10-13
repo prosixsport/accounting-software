@@ -10,7 +10,7 @@
 @endphp
 
 <div class="funds-screen">
-<header class="funds-head"><div><h3>Funds Management</h3><small>{{ $month->format('F Y') }} · Cash flow through {{ $report['end'] }}</small></div><div class="funds-actions"><form method="get" action="{{ route('funds-management.index') }}" class="fund-month"><input aria-label="Report month" type="month" name="month" value="{{ $month->format('Y-m') }}" max="{{ now('Asia/Karachi')->format('Y-m') }}" required><button class="btn btn-outline-dark">Load</button></form><button type="button" class="btn btn-outline-dark" data-dialog="fund-return">Return Cash to Boss</button><button type="button" class="btn btn-outline-dark" data-dialog="fund-access" title="Who has access?" aria-label="View funds access"><i class="bi bi-eye"></i></button><button type="button" class="btn btn-dark" data-dialog="fund-receive">+ Receive Funds from Boss</button></div></header>
+<header class="funds-head"><div><h3>Funds Management</h3><small>{{ $month->format('F Y') }} · Cash flow through {{ $report['end'] }}</small><small class="d-block">Overall recorded balance through today: <strong>Rs {{ $money($report['all_balance']) }}</strong></small></div><div class="funds-actions"><button type="button" class="btn btn-outline-dark" onclick="location.reload()">Refresh Balance</button><form method="get" action="{{ route('funds-management.index') }}" class="fund-month"><input id="funds-report-month" aria-label="Report month" type="month" name="month" value="{{ $month->format('Y-m') }}" max="{{ now('Asia/Karachi')->format('Y-m') }}" required></form><button type="button" class="btn btn-outline-dark" data-dialog="fund-return">Return Cash to Boss</button><button type="button" class="btn btn-outline-dark" data-dialog="fund-access" title="Who has access?" aria-label="View funds access"><i class="bi bi-eye"></i></button><button type="button" class="btn btn-dark" data-dialog="fund-receive">+ Receive Funds from Boss</button></div></header>
 
 @if(session('success'))
 <div class="alert alert-success py-2">{{ session('success') }}</div>
@@ -78,7 +78,7 @@
 
 @endforelse
 
-</table></article></div><details class="receipt-details"><summary>Who received funds from each boss?</summary><table class="table"><thead><tr><th>Date</th><th>Boss</th><th>Received By</th><th>Photo</th><th>Amount</th></tr></thead><tbody>
+</table></article></div><details class="receipt-details"><summary>Who received funds from each boss?</summary><table class="table"><thead><tr><th>Date</th><th>Boss</th><th>Received By</th><th>Photo</th><th>Amount</th><th></th></tr></thead><tbody>
 @foreach(array_reverse($report['ledger']) as $receiptRow)
 @if($receiptRow['type']==='Boss funds')
 <tr><td>{{ $receiptRow['date'] }}</td><td>{{ $receiptRow['party'] }}</td><td>{{ $receiptRow['receiver'] ?? 'Historical — receiver not recorded' }}<small class="d-block text-muted">Entry by {{ $receiptRow['actor'] }}</small></td><td>
@@ -89,7 +89,7 @@
 
 @endif
 
-</td><th>Rs {{ $money($receiptRow['in']) }}</th></tr>
+</td><th>Rs {{ $money($receiptRow['in']) }}</th><td>@if($receiptRow['edit_url'])<a class="btn btn-sm btn-outline-dark" href="{{ $receiptRow['edit_url'] }}" aria-label="Edit funds receipt"><i class="bi bi-pencil"></i> Edit</a>@endif</td></tr>
 
 @endif
 
@@ -225,13 +225,22 @@ $changed=array_filter($fields,fn($key)=>!in_array($key,['created_at','updated_at
 @endforeach
 </select></div><div class="col-12"><label class="form-label">Amount Actually Returned</label><input class="form-control" type="number" name="amount" min="0.01" step="0.01" max="9999999999999.99" value="{{ old('return_date') ? old('amount') : '' }}" required></div><div class="col-12"><label class="form-label">Remarks</label><textarea name="notes" class="form-control" maxlength="2000">{{ old('return_date') ? old('notes') : '' }}</textarea></div><div class="col-12"><button class="btn btn-dark">Save Cash Return</button></div></form></dialog>
 @foreach($report['weeks'] as $week)
-<dialog id="fund-week-{{ $week['number'] }}" class="fund-dialog fw-detail"><div class="dialog-head"><h4>Week {{ $week['number'] }} · Transaction Details</h4><button type="button" data-close aria-label="Close">×</button></div><p>{{ $week['start'] }} to {{ $week['end'] }}</p><div class="table-responsive"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Person / Boss</th><th>Received</th><th>Paid / Returned</th><th>Recorded By</th></tr></thead><tbody>
+<dialog id="fund-week-{{ $week['number'] }}" class="fund-dialog fw-detail"><div class="dialog-head"><div><h4>Week {{ $week['number'] }} · Cash Details</h4><small>{{ $week['start'] }} to {{ $week['end'] }}</small></div><button type="button" data-close aria-label="Close">×</button></div>
+<div class="fw-detail-summary">Available: <strong>Rs {{ $money($week['available']) }}</strong> · Paid: <strong>Rs {{ $money($week['spent']) }}</strong> · Returned: <strong>Rs {{ $money($week['returned']) }}</strong> · Remaining: <strong>Rs {{ $money($week['closing']) }}</strong></div>
+<div class="fw-category-tabs" role="group" aria-label="Weekly cash categories">
+@foreach(['all'=>'All Transactions','salary'=>'Salary Workers','advances'=>'Contractor Advances','bills'=>'Contractor Bills','expenses'=>'Other Expenses','other'=>'Received / Returned'] as $category=>$label)
+@php $categoryRows=array_filter($week['ledger'],fn($e)=>$category==='all'||\App\Services\FundsLedger::category($e)===$category); $categorySpent=array_sum(array_column($categoryRows,'out')); $categoryReceived=array_sum(array_column($categoryRows,'in')); @endphp
+<button type="button" data-week-category="{{ $category }}" aria-pressed="{{ $category==='all'?'true':'false' }}">{{ $label }}<strong>@if($category==='other')In Rs {{ $money($categoryReceived) }} · Out Rs {{ $money($categorySpent) }}@else Rs {{ $money($categorySpent) }}@endif</strong></button>
+@endforeach
+</div>
+<div class="table-responsive"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Person / Boss</th><th>Details</th><th>Received</th><th>Paid / Returned</th><th>Recorded By</th></tr></thead><tbody>
 @forelse($week['ledger'] as $entry)
-<tr><td>{{ $entry['date'] }}</td><td>{{ $entry['type'] }}</td><td>{{ $entry['party'] }}<small class="d-block">{{ $entry['description'] }}</small></td><td>Rs {{ $money($entry['in']) }}</td><td>Rs {{ $money($entry['out']) }}</td><td>{{ $entry['actor'] }}</td></tr>
+<tr data-week-row="{{ \App\Services\FundsLedger::category($entry) }}"><td>{{ $entry['date'] }}</td><td>{{ $entry['type'] }}</td><td>{{ $entry['party'] }}</td><td>{{ $entry['description'] }}</td><td>Rs {{ $money($entry['in']) }}</td><td>Rs {{ $money($entry['out']) }}</td><td>{{ $entry['actor'] }}</td></tr>
 @empty
-<tr><td colspan="6">No actual transactions recorded in this week.</td></tr>
+<tr><td colspan="7">No transactions recorded in this week.</td></tr>
 @endforelse
-</tbody></table></div><strong>Remaining: Rs {{ $money($week['closing']) }}</strong></dialog>
+<tr data-week-empty hidden><td colspan="7">No records in this category for this week.</td></tr>
+</tbody></table></div></dialog>
 @endforeach
 <dialog id="fund-receive" class="fund-dialog" aria-labelledby="receive-title"><div class="dialog-head"><h4 id="receive-title">{{ $editReceipt ? 'Edit Funds Receipt' : 'Receive Funds from Boss' }}</h4><button type="button" data-close aria-label="Close">×</button></div>
 
@@ -327,5 +336,27 @@ document.getElementById('fund-receive').showModal();
 .fund-dialog.fw-detail{width:calc(100vw - 32px);max-width:none;height:calc(100dvh - 32px);max-height:calc(100dvh - 32px);margin:16px;padding:24px;box-sizing:border-box}.fw-detail .dialog-head{position:sticky;top:-24px;background:white;padding:14px 0;z-index:2}
 </style>
 
+<script>
+(function(){
+ const revision={{ \Illuminate\Support\Js::from($revision) }},key='funds-view-'+{{ \Illuminate\Support\Js::from($month->format('Y-m')) }};
+ let busy=false;
+ try{const saved=JSON.parse(sessionStorage.getItem(key)||'null');sessionStorage.removeItem(key);if(saved){document.querySelector('[data-panel="'+saved.tab+'"]')?.click();requestAnimationFrame(()=>{document.querySelector('.funds-body').scrollTop=saved.scroll||0;});}}catch(e){}
+ async function refresh(){
+  if(busy||document.hidden||document.querySelector('dialog[open]')||document.activeElement?.matches('input,select,textarea'))return;
+  busy=true;try{
+   const response=await fetch({{ \Illuminate\Support\Js::from(route('funds-management.index',['month'=>$month->format('Y-m')])) }},{headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin',cache:'no-store'});if(!response.ok)return;const data=await response.json();
+   if(data.revision!==revision){const active=document.querySelector('[data-panel][aria-selected="true"]');try{sessionStorage.setItem(key,JSON.stringify({tab:active?.dataset.panel||'overview',scroll:document.querySelector('.funds-body').scrollTop}));}catch(e){}location.reload();}
+  }catch(e){}finally{busy=false;}
+ }
+ setInterval(refresh,15000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
+})();
+</script>
+<style>
+.funds-actions [data-dialog="fund-receive"]{background:#176b5e;border-color:#176b5e;color:#fff}.funds-actions [data-dialog="fund-return"]{border-color:#356ac4;color:#356ac4}.fw-category-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.fw-category-tabs button{border:1px solid #dce5ed;background:#f4f7fa;color:#35516b;border-radius:8px;padding:10px 14px;text-align:left;font-size:12px}.fw-category-tabs button strong{display:block;margin-top:5px;font-size:15px}.fw-category-tabs button[aria-pressed=true]{background:#176b5e;border-color:#176b5e;color:white}.fw-detail-summary{background:#edf6f3;padding:14px;border-radius:8px;font-size:13px;line-height:1.8}
+</style>
+<script>
+(function(){const input=document.getElementById('funds-report-month');input.addEventListener('change',()=>{if(input.value&&input.reportValidity())input.form.requestSubmit();});const url=new URL(location.href);url.searchParams.set('month',{{ \Illuminate\Support\Js::from($month->format('Y-m')) }});history.replaceState(history.state,'',url);
+document.querySelectorAll('[data-week-category]').forEach(button=>button.addEventListener('click',()=>{const dialog=button.closest('dialog');dialog.querySelectorAll('[data-week-category]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));let count=0;dialog.querySelectorAll('[data-week-row]').forEach(row=>{row.hidden=button.dataset.weekCategory!=='all'&&row.dataset.weekRow!==button.dataset.weekCategory;if(!row.hidden)count++;});dialog.querySelector('[data-week-empty]').hidden=count>0;}));})();
+</script>
 @endsection
 

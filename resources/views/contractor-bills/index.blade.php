@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+<div class="alert alert-light border">Pre-bill cash goes in <a href="{{ route('contractor-advances.index') }}">Contractor Advances</a>. Bills show settlement including adjusted advances. Only actual bill payments reduce Funds again.</div>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
 
@@ -283,14 +284,15 @@
                     @csrf
 
                     <input type="hidden"
-                           name="contractor_bill_id"
+                           name="submission_key" value="{{ (string)\Illuminate\Support\Str::uuid() }}">
+                    <input type="hidden" name="contractor_bill_id"
                            value="{{ $bill->id }}">
 
                     <div class="modal-header">
 
                         <div>
                             <h5 class="modal-title">
-                                Add Advance
+                                Record Bill Payment
                             </h5>
 
                             <small class="text-muted">
@@ -402,7 +404,7 @@
                         <button type="submit"
                                 class="btn btn-primary">
 
-                            Save Advance
+                            Save Payment
                         </button>
 
                     </div>

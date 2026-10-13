@@ -18,6 +18,8 @@ class ContractorBill extends Model
     'balance',
     'status',
     'notes',
+    'advance_adjusted',
+    'submission_key',
 ];
 
     protected $casts = [
@@ -25,6 +27,7 @@ class ContractorBill extends Model
         'grand_total' => 'decimal:2',
         'paid_amount' => 'decimal:2',
         'balance' => 'decimal:2',
+        'advance_adjusted'=>'decimal:2',
     ];
 
     public function contractor(): BelongsTo

@@ -13,6 +13,7 @@ class ContractorBillPayment extends Model
         'payment_date',
         'payment_time',
         'remarks',
+        'submission_key',
     ];
 
     protected $casts = [

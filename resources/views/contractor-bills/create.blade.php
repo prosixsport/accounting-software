@@ -36,6 +36,7 @@
               id="billForm">
 
             @csrf
+<input type="hidden" name="submission_key" value="{{ old('submission_key',(string)\Illuminate\Support\Str::uuid()) }}">
 
             <div class="row align-items-start">
 
@@ -266,7 +267,7 @@
                 </div>
 
                 <div class="col-lg-4 mb-3">
-                    <label class="form-label">Paid Amount</label>
+                    <label class="form-label">Cash Paid (if not paying full balance)</label>
 
                     <div class="input-group">
                         <span class="input-group-text">Rs</span>
@@ -281,6 +282,7 @@
                     </div>
                 </div>
 
+<div class="col-12 mb-3"><div id="advanceAdjustmentPreview" class="alert alert-success mb-2"></div><div class="alert alert-info mb-2">Available contractor advances are adjusted automatically. Only a new cash payment reduces Funds; advance adjustment is not paid twice.</div><input type="hidden" name="pay_remaining_now" value="0"><label class="d-flex align-items-center gap-2"><input type="checkbox" id="payRemainingNow" name="pay_remaining_now" value="1" @checked(old('pay_remaining_now',1))> Pay remaining balance now after advance adjustment</label><label class="form-label mt-2">Actual Cash Payment Date</label><input type="date" id="billPaymentDate" name="payment_date" class="form-control" value="{{ old('payment_date',now('Asia/Karachi')->toDateString()) }}" max="{{ now('Asia/Karachi')->toDateString() }}"><small class="text-muted">Uncheck for an unpaid bill; enter cash paid as 0. Use the actual historical payment date for old records.</small></div>
                 <div class="col-lg-4 mb-3">
                     <label class="form-label">Remaining Balance</label>
 
@@ -519,6 +521,9 @@ document.addEventListener('DOMContentLoaded', function () {
         row.querySelector('.total').value = '0.00';
     }
 
+    const advanceRows={{ \Illuminate\Support\Js::from($advancePreview) }};
+    document.getElementById('payRemainingNow').addEventListener('change',calculateTotals);
+    document.querySelector('[name="bill_date"]').addEventListener('change',calculateTotals);
     function calculateTotals() {
         let grandTotal = 0;
 
@@ -545,17 +550,16 @@ document.addEventListener('DOMContentLoaded', function () {
         grandTotalInput.value =
             grandTotal.toFixed(2);
 
-        const paidAmount =
-            parseFloat(paidAmountInput.value) || 0;
+        const billDate=document.querySelector('[name="bill_date"]').value;
+        const available=advanceRows.filter(a=>String(a.contractor_id)===contractorSelect.value&&a.date<=billDate).reduce((sum,a)=>sum+a.paise,0)/100;
+        const adjusted=Math.min(grandTotal,available),remaining=Math.max(0,grandTotal-adjusted);
+        const payNow=document.getElementById('payRemainingNow').checked;
+        paidAmountInput.readOnly=payNow;if(payNow)paidAmountInput.value=remaining.toFixed(2);
+        const cash=parseFloat(paidAmountInput.value)||0;
+        balanceInput.value=Math.max(0,remaining-cash).toFixed(2);paidAmountInput.max=remaining.toFixed(2);
+        document.getElementById('billPaymentDate').required=cash>0;
+        document.getElementById('advanceAdjustmentPreview').textContent='Unused advances: Rs '+available.toFixed(2)+' · Auto adjustment: Rs '+adjusted.toFixed(2)+' · New cash payment: Rs '+cash.toFixed(2);
 
-        balanceInput.value =
-            Math.max(
-                0,
-                grandTotal - paidAmount
-            ).toFixed(2);
-
-        paidAmountInput.max =
-            grandTotal.toFixed(2);
     }
 
     contractorSelect.addEventListener(
