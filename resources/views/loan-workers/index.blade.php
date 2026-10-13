@@ -5,6 +5,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3"><div><h3>Loan Workers</h3><p class="text-muted mb-0">Workers with saved loan balances or installments.</p></div><button type="button" class="btn btn-success" onclick="document.getElementById('loan-add').showModal()">+ Add Worker Loan</button></div>
 
+<div class="d-flex gap-2 my-3"><span class="btn btn-dark">Salary Cutting Loans</span><a class="btn btn-outline-success" href="{{ route('direct-loans.index') }}">Direct Repayment / Outside Persons</a></div>
 <input id="loan-search" class="form-control mb-3" placeholder="Search worker or department" aria-label="Search loan workers">
 <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Worker</th><th>Department</th><th>Loan Date / Legacy Month</th><th>Remaining Loan Amount</th><th>Scheduled Installment</th><th></th></tr></thead><tbody>
 @forelse($employees as $employee)

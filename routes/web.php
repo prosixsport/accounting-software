@@ -192,6 +192,9 @@ Route::middleware('auth')->group(function () {
     | Employees
     |--------------------------------------------------------------------------
     */
+    Route::get('/direct-loans', [\App\Http\Controllers\DirectLoanController::class, 'index'])->name('direct-loans.index');
+    Route::post('/direct-loans', [\App\Http\Controllers\DirectLoanController::class, 'store'])->name('direct-loans.store');
+    Route::post('/direct-loans/{id}/repay', [\App\Http\Controllers\DirectLoanController::class, 'repay'])->name('direct-loans.repay');
     Route::post('/loan-workers', [\App\Http\Controllers\LoanWorkerController::class, 'store'])->name('loan-workers.store');
     Route::get('/loan-workers', [\App\Http\Controllers\LoanWorkerController::class, 'index'])->name('loan-workers.index');
     Route::get('/loan-workers/{employee}', [\App\Http\Controllers\LoanWorkerController::class, 'show'])->name('loan-workers.show');
