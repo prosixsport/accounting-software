@@ -14,7 +14,17 @@ class FundsManagementController extends Controller
         $month=Carbon::createFromFormat('!Y-m',$data['month']??$request->session()->get('funds_management_month',$today->format('Y-m')))->startOfMonth();
         abort_if($month->format('Y-m')>$today->format('Y-m'),422,'Select the current or a previous month.');
         $request->session()->put('funds_management_month',$month->format('Y-m'));
-        [$report,$warnings]=DB::transaction(function() use($service,$today,$month){
+        [$report,$warnings]=$this->buildReport($service,$today,$month);
+        $revision=hash('sha256',json_encode($report));
+        if($request->expectsJson())return response()->json(['revision'=>$revision]);
+        $accessUsers=\App\Models\User::with('permissions')->get()->filter(fn($u)=>$u->hasPermission('owner_funds'));
+        $editReceipt=$request->filled('edit') ? \App\Models\FundReceipt::findOrFail($request->validate(['edit'=>['required','integer','min:1']])['edit']) : null;
+        $activity=DB::table('fund_activity')->orderByDesc('id')->paginate(30)->withQueryString();
+        return view('funds-management.index',compact('month','report','warnings','accessUsers','activity','editReceipt','revision'));
+    }
+    private function buildReport(FundsLedger $service, Carbon $today, Carbon $month): array
+    {
+        return DB::transaction(function() use($service,$today,$month){
             $entries=$service->entries();
             $report=$service->month($entries,$month,$today);
             $report['all_balance']=0;
@@ -36,13 +46,30 @@ class FundsManagementController extends Controller
             $report['weeks']=$weeks;
             return [$report,$service->review($report['ledger'])];
         });
-        $revision=hash('sha256',json_encode($report));
-        if($request->expectsJson())return response()->json(['revision'=>$revision]);
-        $accessUsers=\App\Models\User::with('permissions')->get()->filter(fn($u)=>$u->hasPermission('owner_funds'));
-        $editReceipt=$request->filled('edit') ? \App\Models\FundReceipt::findOrFail($request->validate(['edit'=>['required','integer','min:1']])['edit']) : null;
-        $activity=DB::table('fund_activity')->orderByDesc('id')->paginate(30)->withQueryString();
-        return view('funds-management.index',compact('month','report','warnings','accessUsers','activity','editReceipt','revision'));
     }
+
+    public function print(Request $request, FundsLedger $service)
+    {
+        abort_unless($request->user()->hasPermission('owner_funds'),403);
+        $data=$request->validate(['month'=>['required','date_format:Y-m'],'week'=>['nullable','integer','min:1','max:5']]);
+        $today=now('Asia/Karachi');
+        $month=Carbon::createFromFormat('!Y-m',$data['month'])->startOfMonth();
+        abort_if($month->format('Y-m')>$today->format('Y-m'),422,'Select the current or a previous month.');
+        [$monthly,$warnings]=$this->buildReport($service,$today,$month);
+        $week=$data['week']??null;
+        if($week){
+            abort_if($week>count($monthly['weeks']),422,'This month does not have that week.');
+            $report=$monthly['weeks'][$week-1];
+            if(!$report['future'])$report['end']=min($report['end'],$today->toDateString());
+        } else {
+            $report=$monthly;$report['start']=$month->toDateString();
+        }
+        $breakdown=[];
+        foreach($report['ledger'] as $entry)if($entry['out']>0)$breakdown[$entry['type']]=($breakdown[$entry['type']]??0)+$entry['out'];
+        $warnings=$service->review($report['ledger']);
+        return view('funds-management.print',compact('month','week','report','breakdown','warnings'));
+    }
+
     public function returnCash(Request $request)
     {
         abort_unless($request->user()->hasPermission('owner_funds'),403);

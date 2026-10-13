@@ -91,6 +91,7 @@ Route::post(
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth')->group(function () {
+    Route::get('/funds-management/print', [\App\Http\Controllers\FundsManagementController::class, 'print'])->name('funds-management.print');
     Route::get('/funds-management', [\App\Http\Controllers\FundsManagementController::class, 'index'])->name('funds-management.index');
     /*
     |--------------------------------------------------------------------------
