@@ -194,6 +194,9 @@ Route::middleware('auth')->group(function () {
     */
     Route::get('/direct-loans', [\App\Http\Controllers\DirectLoanController::class, 'index'])->name('direct-loans.index');
     Route::post('/direct-loans', [\App\Http\Controllers\DirectLoanController::class, 'store'])->name('direct-loans.store');
+    Route::put('/direct-loans/{id}', [\App\Http\Controllers\DirectLoanController::class, 'update'])->name('direct-loans.update');
+    Route::delete('/direct-loans/{id}', [\App\Http\Controllers\DirectLoanController::class, 'destroy'])->name('direct-loans.destroy');
+    Route::delete('/direct-loan-repayments/{id}', [\App\Http\Controllers\DirectLoanController::class, 'destroyRepayment'])->name('direct-loans.repayments.destroy');
     Route::post('/direct-loans/{id}/repay', [\App\Http\Controllers\DirectLoanController::class, 'repay'])->name('direct-loans.repay');
     Route::post('/loan-workers', [\App\Http\Controllers\LoanWorkerController::class, 'store'])->name('loan-workers.store');
     Route::get('/loan-workers', [\App\Http\Controllers\LoanWorkerController::class, 'index'])->name('loan-workers.index');
