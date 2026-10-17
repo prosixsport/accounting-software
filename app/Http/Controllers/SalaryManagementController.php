@@ -59,8 +59,9 @@ class SalaryManagementController extends Controller {
   $data['day_rate']=round($data['salary']/30,2);
   $data['ot_rate']=round($data['salary']/30/$data['working_hours_per_day'],2);
   $row=DB::transaction(function() use($data,$month) {
-   Employee::whereKey($data['employee_id'])->lockForUpdate()->firstOrFail();
+   $employee=Employee::whereKey($data['employee_id'])->lockForUpdate()->firstOrFail();
    $existing=SalaryManagementRow::where('employee_id',$data['employee_id'])->whereDate('month',$month->toDateString())->lockForUpdate()->first();
+   if(!$existing && $employee->status==='inactive')throw \Illuminate\Validation\ValidationException::withMessages(['employee_id'=>'Inactive workers cannot be added to salary.']);
    if($existing && (float)$existing->paid_amount>0)throw \Illuminate\Validation\ValidationException::withMessages(['salary'=>'Mark this record Unpaid before editing a paid salary.']);
    $schedule=(new \App\Services\WorkerLoans)->schedule($data['employee_id'],$month->toDateString(),$existing?->id);
    $salaryData=$data;
@@ -124,7 +125,7 @@ class SalaryManagementController extends Controller {
   $month=$this->month($request);
   $data=$request->validate(['employee_id'=>['required','integer','exists:employees,id'],'advance_date'=>['required','date_format:Y-m-d','after_or_equal:'.$month->toDateString(),'before_or_equal:'.$month->copy()->endOfMonth()->toDateString()],'amount'=>['required','numeric','min:0','max:9999999999.99'],'reason'=>['nullable','string','max:1000'],'original_date'=>['required','date_format:Y-m-d'],'original_amount'=>['required','numeric'],'original_reason'=>['nullable','string','max:1000']]);
   $row=DB::transaction(function()use($data,$month,$advance){
-   Employee::whereKey($data['employee_id'])->lockForUpdate()->firstOrFail();
+   $employee=Employee::whereKey($data['employee_id'])->lockForUpdate()->firstOrFail();
    $row=SalaryManagementRow::whereKey($advance->salary_row_id)->where('employee_id',$data['employee_id'])->whereDate('month',$month->toDateString())->lockForUpdate()->firstOrFail();
    if((float)$row->paid_amount>0)throw \Illuminate\Validation\ValidationException::withMessages(['amount'=>'Mark salary Unpaid before editing an advance in a paid record.']);
    $record=SalaryManagementAdvance::whereKey($advance->id)->lockForUpdate()->firstOrFail();

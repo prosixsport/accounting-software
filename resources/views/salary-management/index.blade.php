@@ -4,6 +4,7 @@
 @section('title', 'Salary Management')
 
 @section('content')
+@include('partials.advance-week-date')
 
 @php
 
@@ -729,7 +730,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  $data=[];
  foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount','working_hours_per_day','salary_date','payment_date','notes'] as $field) $data[$field]=$r?->{$field};
  $schedule=$loanSchedules->get($e->id);if($schedule['managed']){$data['loan_balance']=$schedule['loan_balance'];$data['loan_deduction']=$schedule['loan_deduction'];}
- return ['managed_loan'=>$schedule['managed'],'id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['id'=>$a->id,'date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
+ return ['active'=>$e->status!=='inactive','managed_loan'=>$schedule['managed'],'id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['id'=>$a->id,'date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
 })->values();
 @endphp
 <dialog id="sm-batch-dialog" class="salary-manager" style="width:min(960px,95vw);max-height:92vh;border:1px solid #ddd;border-radius:16px;padding:0;overflow:hidden">
@@ -752,7 +753,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
  @foreach(['loan_balance'=>'Loan Balance — information only','loan_deduction'=>'Loan Installment to Deduct','other_deduction'=>'Other Deduction','overdue'=>'Previous Unpaid Salary (+)','paid_amount'=>'Final Salary Already Paid'] as $field=>$label)<div class="col-md-4"><label class="sm-label">{{ $label }}</label><input class="sm-control" name="{{ $field }}" type="number" min="0" max="9999999999.99" step="0.01" value="0" required></div>@endforeach
  <div class="col-12"><label class="sm-label">Notes</label><textarea class="sm-control" name="notes" maxlength="2000"></textarea></div>
  </div><p class="sm-hint mt-2">Loan balance does not reduce salary. Only the entered loan installment is deducted.</p></details>
- <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>Select week, date and amount, then click Add Advance to save for this worker. Current salary details are saved too. Week follows the payment date.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week" aria-label="Select advance week">@for($w=1;$w<=ceil($month->daysInMonth/7);$w++)<option value="{{ $w }}">Week {{ $w }} · {{ ($w-1)*7+1 }}–{{ min($w*7,$month->daysInMonth) }}</option>
+ <section class="sm-section mt-3"><h5>Add Advance (Optional)</h5><p>Select week, date and amount, then click Add Advance to save for this worker. Current salary details are saved too. Saturday is selected by default; you can change the date. Week follows the payment date.</p><div class="row g-3"><div class="col-md-3"><label class="sm-label">Week</label><select class="sm-control" name="entry_advance_week" aria-label="Select advance week">@for($w=1;$w<=ceil($month->daysInMonth/7);$w++)<option value="{{ $w }}">Week {{ $w }} · {{ ($w-1)*7+1 }}–{{ min($w*7,$month->daysInMonth) }}</option>
 @endfor</select></div><div class="col-md-3"><label class="sm-label">Advance Date</label><input class="sm-control" name="entry_advance_date" type="date" min="{{ $month->toDateString() }}" max="{{ $month->copy()->endOfMonth()->toDateString() }}"></div><div class="col-md-3"><label class="sm-label">New Advance Amount</label><input class="sm-control" name="entry_advance_amount" type="number" min="0" max="9999999999.99" step="0.01" value="0"></div><div class="col-md-3"><label class="sm-label">Reason</label><input class="sm-control" name="entry_advance_reason" maxlength="1000"></div></div><div class="mt-3"><button type="button" id="sm-entry-add-advance" class="sm-btn sm-btn-primary">+ Add Advance</button><span class="sm-hint ms-2">Enter 0 if no advance was paid. Save and continue to the next week.</span></div></section>
  <section class="sm-section mt-3"><h5 id="sm-ledger-title">Saved Advance Record</h5><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Date</th><th>Week</th><th>Amount</th><th>Reason</th><th>Actions</th></tr></thead><tbody id="sm-entry-ledger"></tbody></table></div><div class="sm-hint" id="sm-entry-week-totals"></div><p class="sm-hint">New advances appear here after saving. Each payment is deducted once.</p></section>
  <label class="sm-label mt-3">Actual Salary Payment Date (only if Salary Paid is entered)</label><input class="sm-control" type="date" name="payment_date" min="{{ $month->toDateString() }}" max="{{ now('Asia/Karachi')->toDateString() }}">
@@ -806,28 +807,28 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
   });
  }
  function progress(){
-  const list=workers.filter(w=>!dept.value||w.department===dept.value), saved=list.filter(w=>w.saved).length;
+  const list=workers.filter(w=>(editing||w.active)&&(!dept.value||w.department===dept.value)), saved=list.filter(w=>w.saved).length;
   document.getElementById('sm-entry-progress').textContent=(dept.value||'All Departments')+' · '+saved+' of '+list.length+' saved';
  }
  function pickNext(){
   select.value='';options();
-  const next=workers.find(w=>(!dept.value||w.department===dept.value)&&!w.saved);
+  const next=workers.find(w=>w.active&&(!dept.value||w.department===dept.value)&&!w.saved);
   if(next){select.value=String(next.id);load();progress();dialog.querySelector('[name="salary"]').focus();return;}
   fields.disabled=true;document.getElementById('sm-entry-save').disabled=true;progress();
-  const pending=workers.find(w=>!w.saved);
+  const pending=workers.find(w=>w.active&&!w.saved);
   document.getElementById('sm-complete-text').textContent=(dept.value||'All Employees')+' salary records are complete for this month.'+(pending?' Continue with the next department.':' All departments are complete.');
   document.getElementById('sm-next-department').hidden=!pending;
   const panel=document.getElementById('sm-dept-complete');panel.hidden=false;document.getElementById('sm-complete-heading').focus();
  }
  document.getElementById('sm-next-department').addEventListener('click',()=>{
   document.getElementById('sm-dept-complete').hidden=true;
-  const next=workers.find(w=>!w.saved);if(next){dept.value=next.department;pickNext();}
+  const next=workers.find(w=>w.active&&!w.saved);if(next){dept.value=next.department;pickNext();}
  });
  document.getElementById('sm-finish-entry').addEventListener('click',()=>dialog.close());
  function options(){
   const selected=select.value;
   select.replaceChildren(new Option('Select Worker',''));
-  workers.filter(w=>(!dept.value || w.department===dept.value)).forEach(w=>select.add(new Option(w.name+' · '+(w.department||'No Department')+' · '+(w.saved?'Saved':'Not Saved'),String(w.id))));
+  workers.filter(w=>(editing||w.active)&&(!dept.value || w.department===dept.value)).forEach(w=>select.add(new Option(w.name+' · '+(w.department||'No Department')+' · '+(w.saved?'Saved':'Not Saved'),String(w.id))));
   select.value=selected;
   if(!select.value){fields.disabled=true;document.getElementById('sm-entry-save').disabled=true;renderLedger(null);}progress();
  }
@@ -852,7 +853,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
   for(const key of ['absent_days','ot_hours','working_hours_per_day'])form.elements.namedItem(key).value=Number(form.elements.namedItem(key).value);
   for(const key of ['loan_balance','loan_deduction'])form.elements.namedItem(key).readOnly=Boolean(w.managed_loan);
   renderLedger(w);document.getElementById('sm-extra-details').open=['loan_balance','loan_deduction','other_deduction','overdue','paid_amount'].some(k=>num(k)>0);
-  form.elements.entry_advance_amount.value=0;form.elements.entry_advance_date.value=form.elements.salary_date.value;form.elements.entry_advance_reason.value='';syncWeek();preview();
+  form.elements.entry_advance_amount.value=0;form.elements.entry_advance_date.value=form.elements.salary_date.value;form.elements.entry_advance_reason.value='';syncWeek();form.elements.entry_advance_date.value=window.advanceWeekDate(form.elements.month.value,form.elements.entry_advance_week.value);preview();
  }
  function syncWeek(){
  const date=form.elements.entry_advance_date.value;
@@ -862,7 +863,7 @@ form.elements.entry_advance_date.addEventListener('change',syncWeek);
 form.elements.entry_advance_week.addEventListener('change',()=>{
  const input=form.elements.entry_advance_date,week=Number(form.elements.entry_advance_week.value),start=(week-1)*7+1;
  const currentDay=Number(input.value.slice(8,10));
- if(!input.value||Math.min(5,Math.floor((currentDay-1)/7)+1)!==week)input.value=input.min.slice(0,7)+'-'+String(start).padStart(2,'0');
+ input.value=window.advanceWeekDate(input.min.slice(0,7),week);
 });
 form.elements.salary_date.addEventListener('change',()=>{dateDefault=form.elements.salary_date.value;form.elements.entry_advance_date.value=dateDefault;syncWeek();});
 document.addEventListener('click',event=>{const button=event.target.closest('[data-edit-salary]');if(!button)return;const worker=workers.find(w=>String(w.id)===button.dataset.editSalary);if(!worker)return;editing=true;dept.value=worker.department;options();select.value=String(worker.id);load();message.hidden=true;document.getElementById('sm-dept-complete').hidden=true;dialog.querySelector('h4').textContent='Edit Salary — '+worker.name;document.getElementById('sm-entry-save').textContent='Save Changes';dialog.showModal();});
@@ -891,7 +892,7 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
    const response=await fetch(form.action,{method:'POST',body:payload,headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
    const data=await response.json();if(!response.ok)throw new Error(data.errors?Object.values(data.errors).flat().join(' '):(data.message||'Unable to save.'));
    w.saved=true;w.data=data.row;w.advance=data.advance;w.ledger=data.ledger||[];changed=true;document.dispatchEvent(new Event('salary-record-saved'));
-   if(keepWorker){load();const nextWeek=Math.min(Number(savedWeek)+1,form.elements.entry_advance_week.options.length);form.elements.entry_advance_week.value=String(nextWeek);form.elements.entry_advance_date.value=nextWeek===Number(savedWeek)?savedAdvanceDate:form.elements.entry_advance_date.min.slice(0,7)+'-'+String((nextWeek-1)*7+1).padStart(2,'0');preview();progress();renderLedger(w);message.hidden=false;message.className='alert alert-success';message.textContent='Advance saved for '+w.name+'. Select another week to add more.';return;}
+   if(keepWorker){load();const nextWeek=Math.min(Number(savedWeek)+1,form.elements.entry_advance_week.options.length);form.elements.entry_advance_week.value=String(nextWeek);form.elements.entry_advance_date.value=nextWeek===Number(savedWeek)?savedAdvanceDate:window.advanceWeekDate(form.elements.entry_advance_date.min.slice(0,7),nextWeek);preview();progress();renderLedger(w);message.hidden=false;message.className='alert alert-success';message.textContent='Advance saved for '+w.name+'. Select another week to add more.';return;}
    if(editing){load();message.hidden=false;message.className='alert alert-success';message.textContent=w.name+' salary updated.';return;}
    const name=w.name, keptDepartment=dept.value, keptDate=form.elements.salary_date.value;dateDefault=keptDate;fields.disabled=false;form.reset();dept.value=keptDepartment;form.elements.salary_date.value=keptDate;fields.disabled=true;select.value='';options();renderLedger(w);document.getElementById('sm-extra-details').open=false;document.getElementById('sm-entry-preview').replaceChildren();
    message.hidden=false;message.className='alert alert-success';message.textContent=name+' salary saved.';pickNext();
@@ -999,7 +1000,7 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
  document.querySelectorAll('.sm-advance-week').forEach(select=>{
   const date=select.form.elements.advance_date;
   const sync=()=>{if(date.value)select.value=String(Math.min(5,Math.floor((Number(date.value.slice(8,10))-1)/7)+1));};
-  select.addEventListener('change',()=>{const week=Number(select.value);if(!date.value||Math.floor((Number(date.value.slice(8,10))-1)/7)+1!==week)date.value=date.min.slice(0,7)+'-'+String((week-1)*7+1).padStart(2,'0');});
+  select.addEventListener('change',()=>{const week=Number(select.value);date.value=window.advanceWeekDate(date.min.slice(0,7),week);});
   date.addEventListener('change',sync);sync();
  });
  const key='salary-view-'+{{ \Illuminate\Support\Js::from($monthKey) }};
