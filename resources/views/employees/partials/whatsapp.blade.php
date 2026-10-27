@@ -16,7 +16,7 @@
         || preg_match('/^92\d{10}$/', $waNumber);
 @endphp
 @if($waValid && $waInternational)
-<a href="https://web.whatsapp.com/send?phone={{ $waNumber }}" target="_blank" rel="noopener noreferrer"
+<a href="https://web.whatsapp.com/send?phone={{ $waNumber }}" target="employee_whatsapp_chat"
    class="employee-action-btn employee-whatsapp-action"
    style="color:#15803d;background:#ecfdf5;border:1px solid #bbf7d0"
    title="Chat with {{ $employee->name }} on WhatsApp"
