@@ -89,11 +89,11 @@
                     {{ $label }}
 
                 </a>
-
             @endforeach
 
         </div>
 
+        
         <form method="GET"
               action="{{ route('expenses.index') }}"
               class="period-form">
@@ -458,6 +458,7 @@
 
     </a>
 
+
     {{-- Edit Expense --}}
     <a href="{{ route('expenses.edit', $expense->id) }}"
        class="edit-expense-action"
@@ -482,6 +483,7 @@
             <i class="bi bi-trash3"></i>
 
         </button>
+
 
     </form>
 

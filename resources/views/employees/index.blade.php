@@ -530,6 +530,7 @@
                             <td>
 
                                 <div class="employee-actions">
+                                    @include('employees.partials.whatsapp', ['employee' => $employee])
 
                                     {{-- View --}}
                                     <a href="{{ route('employees.show', $employee->id) }}"

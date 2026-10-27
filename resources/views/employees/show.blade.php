@@ -572,6 +572,7 @@
 
                                 <strong>
                                     {{ $employee->phone ?? '-' }}
+                                    @include('employees.partials.whatsapp', ['employee' => $employee])
                                 </strong>
 
                             </div>
