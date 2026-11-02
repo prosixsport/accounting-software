@@ -74,7 +74,7 @@
                 'month' => 'Monthly',
                 'year' => 'Yearly',
                 'all' => 'All Time',
-            ] as $value => $label)
+            ] as $value => $label) 
 
                 <a href="{{ route('expenses.index', array_filter([
                     'expense_category_id' => $selectedCategory,
@@ -93,7 +93,7 @@
 
         </div>
 
-        
+
         <form method="GET"
               action="{{ route('expenses.index') }}"
               class="period-form">

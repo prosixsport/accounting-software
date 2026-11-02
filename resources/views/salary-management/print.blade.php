@@ -207,10 +207,10 @@ $actualAdvances=$r->advances->filter(fn($a)=>$a->advance_date->toDateString()<=$
 $f['advance']=round((float)$actualAdvances->sum('amount'),2);
 $gross=round($earnedBeforeAbsence+$f['ot'],2);
 
-$deductions=round($f['absence']+$f['advance']+(float)$r->loan_deduction+(float)$r->other_deduction,2);
+$deductions=round($f['absence']+$f['advance']+$f['carry_in']+(float)$r->loan_deduction+(float)$r->other_deduction,2);
 $asOfNet=round($gross-$deductions,2);
 $asOfPaid=(float)$r->paid_amount;
-if(!empty($r->payment_date) && \Illuminate\Support\Carbon::parse($r->payment_date)->greaterThan($periodEnd)) $asOfPaid=0;
+if(!empty($r->payment_date) && \Illuminate\Support\Carbon::parse($r->payment_date)->startOfDay()->greaterThan($today)) $asOfPaid=0;
 $asOfDue=round($asOfNet+(float)$r->overdue-$asOfPaid,2);
 
 
@@ -252,7 +252,7 @@ $payDate=!empty($r->payment_date)?\Illuminate\Support\Carbon::parse($r->payment_
 
 <table class="ref-earnings"><thead><tr><th>Earnings / Deductions</th><th>Amount</th></tr></thead><tbody>
 
-@foreach(['Full Monthly Salary — 30 Days (Information)'=>$r->salary,'Salary Earned To Date (Before Deductions)'=>$earnedBeforeAbsence,'Overtime'=>$f['ot'],'Absent Deduction'=>$f['absence'],'Advances Through Period End'=>$f['advance'],'Loan Installment'=>$r->loan_deduction,'Other Deduction'=>$r->other_deduction] as $label=>$amount)
+@foreach(['Full Monthly Salary — 30 Days (Information)'=>$r->salary,'Salary Earned To Date (Before Deductions)'=>$earnedBeforeAbsence,'Overtime'=>$f['ot'],'Absent Deduction'=>$f['absence'],'Advances Through Period End'=>$f['advance'],'Previous Advance Balance'=>$f['carry_in'],'Loan Installment'=>$r->loan_deduction,'Other Deduction'=>$r->other_deduction] as $label=>$amount)
 
 <tr><th>{{ $label }}</th><td>Rs {{ number_format($amount,2) }}</td></tr>
 
@@ -262,7 +262,7 @@ $payDate=!empty($r->payment_date)?\Illuminate\Support\Carbon::parse($r->payment_
 
 <div class="ref-totals"><table>
 
-@foreach(['Total Earnings'=>$gross,'Total Deduction'=>$deductions,'Previous Salary Due'=>$r->overdue,'Payable Through Period End'=>$asOfNet+$r->overdue,'Salary Paid'=>$asOfPaid,'Balance Through Period End'=>$asOfDue] as $label=>$amount)
+@foreach(['Total Earnings'=>$gross,'Total Deduction'=>$deductions,'Previous Salary Due'=>$r->overdue,'Payable Through Period End'=>$asOfNet+$r->overdue,'Salary Paid'=>$asOfPaid,'Salary Remaining Payable'=>max(0,$asOfDue),'Advance Balance to Next Month'=>$f['carry_out']] as $label=>$amount)
 
 <tr><th>{{ $label }}</th><td>Rs {{ number_format($amount,2) }}</td></tr>
 

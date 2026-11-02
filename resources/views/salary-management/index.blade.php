@@ -90,9 +90,9 @@
 
     <header class="sm-heading">
 
-        <div><div class="sm-eyebrow">Salary Workers / Monthly Records</div><h3>Salary Management</h3><p>Add salaries, record advances and print slips.</p></div>
+        <div><div class="sm-eyebrow">Salary Workers / Monthly Records</div><h3>Salary Management</h3><p>Salary month stays selected. Pay it next month using the actual payment date.</p></div>
 
-        <div class="sm-actions"><button type="button" class="sm-btn sm-btn-primary" id="sm-add-salary">+ Add Salary</button><a class="sm-btn" href="{{ route('payrolls.index') }}"><i class="bi bi-wallet2" aria-hidden="true"></i> Employees Payroll</a></div>
+        <div class="sm-actions"><button type="button" class="sm-btn sm-btn-primary" id="sm-add-salary">+ Add Salary</button><button type="button" class="sm-btn" id="sm-add-weekly-advance">+ Weekly Advance</button><a class="sm-btn" href="{{ route('payrolls.index') }}"><i class="bi bi-wallet2" aria-hidden="true"></i> Employees Payroll</a></div>
 
     </header>
 
@@ -131,7 +131,7 @@
 <p class="sm-hint" style="text-align:right" id="sm-live-state">Live totals · click a card to see employee details</p>
     <section class="sm-card" aria-label="All employee salary records">
 
-        <p class="sm-hint" style="padding:16px 20px 0;margin:0">Records for {{ $month->format('F Y') }}</p>
+        <p class="sm-hint" style="padding:16px 20px 0;margin:0">Salary: {{ $month->format('F Y') }} · Normally payable in {{ $month->copy()->addMonth()->format('F Y') }}. Advances stay on their cash dates; salary leaves Funds only when paid.</p>
         <div class="sm-toolbar">
 
             <form method="get" class="sm-month-form" action="{{ route('salary-management.index') }}">
@@ -275,7 +275,7 @@
 
                     <td class="sm-money"><strong>{{ $row ? number_format($figures['net'], 2) : '—' }}</strong></td>
 
-                    <td class="sm-money">{{ $row ? number_format($figures['due'], 2) : '—' }}</td>
+                    <td class="sm-money">{{ $row ? number_format(max(0,$figures['due']), 2) : '—' }}@if($row && $figures['carry_in']>0)<small class="sm-cell-secondary">Previous advance: {{ number_format($figures['carry_in'],2) }}</small>@endif @if($row && $figures['carry_out']>0)<small class="sm-cell-secondary">Next month advance: {{ number_format($figures['carry_out'],2) }}</small>@endif</td>
 
                     <td><span class="sm-status {{ $row ? 'sm-status-saved' : 'sm-status-draft' }}">{{ $row ? 'Saved' : 'Not Saved' }}</span></td>
                     @php
@@ -284,7 +284,7 @@
                             $remaining=round($figures['due'],2);
                             $settlement=round($figures['net']+(float)$row->overdue,2);
                             $paid=round((float)$row->paid_amount,2);
-                            if($settlement<0) { $paymentLabel='Excess Advance / Deduction'; }
+                            if($settlement<0) { $paymentLabel='Advance Balance to Next Month'; }
                             elseif($remaining<0) { $paymentLabel='Overpaid'; }
                             elseif($remaining===0.0 && $paid>0) { $paymentLabel='Paid'; $paymentClass='sm-status-saved'; }
                             elseif($remaining===0.0) { $paymentLabel='No Salary Due'; $paymentClass='sm-status-saved'; }
@@ -405,7 +405,7 @@
 
                 <div class="sm-editor-body">
 
-                    <form method="post" action="{{ route('salary-management.save') }}" class="sm-salary-form" data-month-days="30" data-advance-total="{{ $figures['advance'] }}">
+                    <form method="post" action="{{ route('salary-management.save') }}" class="sm-salary-form" data-month-days="30" data-advance-total="{{ $figures['advance'] }}" data-carry-in="{{ $figures['carry_in'] ?? 0 }}">
 
                         @csrf
 
@@ -451,7 +451,7 @@
                     <div class="mt-3"><label class="sm-label">Actual Salary Payment Date</label><input class="sm-control" type="date" name="payment_date" min="{{ $month->toDateString() }}" max="{{ now('Asia/Karachi')->toDateString() }}" value="{{ $row?->payment_date }}"></div>
 </form>
 
-                    <aside class="sm-preview" aria-label="Salary calculation preview"><h5>Salary Preview</h5><div class="sm-preview-line"><span>Monthly Salary</span><b data-preview="salary">—</b></div><div class="sm-preview-line"><span>Overtime (+)</span><b data-preview="ot">—</b></div><div class="sm-preview-line"><span>Absents (−)</span><b data-preview="absence">—</b></div><div class="sm-preview-line"><span>Advances (−)</span><b data-preview="advance">—</b></div><div class="sm-preview-line"><span>Other & Loan (−)</span><b data-preview="deduction">—</b></div><div class="sm-preview-line sm-preview-total"><span>Net Pay</span><strong data-preview="net">—</strong></div><div class="sm-preview-line"><span>Previous Due (+)</span><b data-preview="overdue">—</b></div><div class="sm-preview-line"><span>Final Salary Paid (−)</span><b data-preview="paid">—</b></div><div class="sm-preview-line sm-preview-total"><span>Remaining Due</span><strong data-preview="due">—</strong></div><p class="sm-hint">Preview includes unsaved form entries. Save before printing.</p>@if($row)<a class="sm-btn w-100" target="_blank" rel="noopener" href="{{ route('salary-management.print', ['month'=>$monthKey, 'employee_id'=>$employee->id]) }}">Print Saved Slip</a>@endif</aside>
+                    <aside class="sm-preview" aria-label="Salary calculation preview"><h5>Salary Preview</h5><div class="sm-preview-line"><span>Monthly Salary</span><b data-preview="salary">—</b></div><div class="sm-preview-line"><span>Overtime (+)</span><b data-preview="ot">—</b></div><div class="sm-preview-line"><span>Absents (−)</span><b data-preview="absence">—</b></div><div class="sm-preview-line"><span>Advances (−)</span><b data-preview="advance">—</b></div><div class="sm-preview-line"><span>Previous Advance (−)</span><b data-preview="carry">—</b></div><div class="sm-preview-line"><span>Other & Loan (−)</span><b data-preview="deduction">—</b></div><div class="sm-preview-line sm-preview-total"><span>Net Pay</span><strong data-preview="net">—</strong></div><div class="sm-preview-line"><span>Previous Due (+)</span><b data-preview="overdue">—</b></div><div class="sm-preview-line"><span>Final Salary Paid (−)</span><b data-preview="paid">—</b></div><div class="sm-preview-line sm-preview-total"><span>Remaining Due</span><strong data-preview="due">—</strong></div><p class="sm-hint">Preview includes unsaved form entries. Save before printing.</p>@if($row)<a class="sm-btn w-100" target="_blank" rel="noopener" href="{{ route('salary-management.print', ['month'=>$monthKey, 'employee_id'=>$employee->id]) }}">Print Saved Slip</a>@endif</aside>
 
                 </div>
 
@@ -687,9 +687,10 @@ document.addEventListener('click',async event=>{
 
                 deduction: round(value('loan_deduction') + value('other_deduction')), overdue: value('overdue'), paid: value('paid_amount') };
 
-            numbers.net = round(numbers.salary + numbers.ot - numbers.absence - numbers.advance - numbers.deduction);
+            numbers.net = round(numbers.salary + numbers.ot - numbers.absence - numbers.advance - Number(form.dataset.carryIn||0) - numbers.deduction);
 
-            numbers.due = round(numbers.net + numbers.overdue - numbers.paid);
+            numbers.carry=Number(form.dataset.carryIn||0);
+            numbers.due = Math.max(0,round(numbers.net + numbers.overdue - numbers.paid));
 
             form.closest('.sm-editor').querySelectorAll('[data-preview]').forEach(function (element) {
 
@@ -701,7 +702,7 @@ document.addEventListener('click',async event=>{
 
         form.querySelector('[data-fill-final]').addEventListener('click', function () {
             const value = name => Number(form.elements.namedItem(name).value) || 0;
-            const amount = round(value('salary') + round(value('ot_hours')*value('salary')/30/Math.max(1,value('working_hours_per_day'))) - round(value('absent_days')*value('salary')/30) - Number(form.dataset.advanceTotal) - value('loan_deduction') - value('other_deduction') + value('overdue'));
+            const amount = round(value('salary') + round(value('ot_hours')*value('salary')/30/Math.max(1,value('working_hours_per_day'))) - round(value('absent_days')*value('salary')/30) - Number(form.dataset.advanceTotal) - Number(form.dataset.carryIn||0) - value('loan_deduction') - value('other_deduction') + value('overdue'));
             form.elements.namedItem('paid_amount').value = Math.max(0, amount).toFixed(2);
             preview();
         });
@@ -725,12 +726,12 @@ document.addEventListener('click',async event=>{
 
 
 @php
-$entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
+$entryWorkers=$employees->map(function($e) use($rows,$loanSchedules,$month) {
  $r=$rows->get($e->id);
  $data=[];
  foreach(['salary','loan_balance','absent_days','day_rate','ot_hours','ot_rate','loan_deduction','other_deduction','overdue','paid_amount','working_hours_per_day','salary_date','payment_date','notes'] as $field) $data[$field]=$r?->{$field};
  $schedule=$loanSchedules->get($e->id);if($schedule['managed']){$data['loan_balance']=$schedule['loan_balance'];$data['loan_deduction']=$schedule['loan_deduction'];}
- return ['active'=>$e->status!=='inactive','managed_loan'=>$schedule['managed'],'id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['id'=>$a->id,'date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'advance'=>$r ? $r->figures()['advance'] : 0];
+ return ['active'=>$e->status!=='inactive','managed_loan'=>$schedule['managed'],'id'=>$e->id,'name'=>$e->name,'department'=>$e->department ?? '', 'code'=>$e->employee_code ?? '', 'basic_salary'=>$e->basic_salary ?? 0,'saved'=>(bool)$r,'ledger'=>$r ? $r->advances->map(fn($a)=>['id'=>$a->id,'date'=>$a->advance_date->format('Y-m-d'),'week'=>(int)($a->advance_week ?? min(5,intdiv($a->advance_date->day-1,7)+1)),'amount'=>(float)$a->amount,'reason'=>$a->reason ?? ''])->values() : [],'data'=>$data,'carry_in'=>$r ? $r->figures()['carry_in'] : (new \App\Services\SalaryAdvanceCarry)->incoming((int)$e->id,$month->toDateString()),'advance'=>$r ? $r->figures()['advance'] : 0];
 })->values();
 @endphp
 <dialog id="sm-batch-dialog" class="salary-manager" style="width:min(960px,95vw);max-height:92vh;border:1px solid #ddd;border-radius:16px;padding:0;overflow:hidden">
@@ -801,7 +802,7 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
     for(const [key,input] of Object.entries(inputs))payload.set(key,input.value);
     const url={{ \Illuminate\Support\Js::from(url('/salary-management/advances')) }}+'/'+a.id;
     const response=await fetch(url,{method:'POST',body:payload,headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});const data=await response.json();if(!response.ok)throw Error(data.errors?Object.values(data.errors).flat().join(' '):(data.message||'Unable to update advance.'));
-    w.advance=data.advance;w.ledger=data.ledger;w.data=data.row;changed=true;renderLedger(w);preview();message.hidden=false;message.className='alert alert-success';message.textContent='Advance updated for '+w.name+'.';document.dispatchEvent(new Event('salary-record-saved'));
+    w.carry_in=data.carry_in;w.advance=data.advance;w.ledger=data.ledger;w.data=data.row;changed=true;renderLedger(w);preview();message.hidden=false;message.className='alert alert-success';message.textContent='Advance updated for '+w.name+'.';document.dispatchEvent(new Event('salary-record-saved'));
    }catch(error){message.hidden=false;message.className='alert alert-danger';message.textContent=error.message;}
    finally{saving=false;save.disabled=false;select.disabled=dept.disabled=false;document.getElementById('sm-entry-save').disabled=!select.value;document.getElementById('sm-entry-add-advance').disabled=false;}
   });
@@ -837,11 +838,11 @@ $entryWorkers=$employees->map(function($e) use($rows,$loanSchedules) {
   const day=round(num('salary')/days), hrs=num('working_hours_per_day');
   form.elements.day_rate.value=day.toFixed(2);form.elements.ot_rate.value=(hrs>=1&&hrs<=24?round(num('salary')/days/hrs):0).toFixed(2);
   const advances=Number(w.advance)+num('entry_advance_amount');
-  const net=round(num('salary')+round(num('ot_hours')*num('salary')/days/Math.max(1,num('working_hours_per_day')))-round(num('absent_days')*num('salary')/days)-advances-num('loan_deduction')-num('other_deduction'));
+  const net=round(num('salary')+round(num('ot_hours')*num('salary')/days/Math.max(1,num('working_hours_per_day')))-round(num('absent_days')*num('salary')/days)-advances-Number(w.carry_in||0)-num('loan_deduction')-num('other_deduction'));
   document.getElementById('sm-entry-rates').textContent='Absence rate: '+money(day)+'/day · Overtime rate: '+money(num('ot_rate'))+'/hour';
   const preview=document.getElementById('sm-entry-preview');preview.replaceChildren();
-  for(const [label,amount] of [['Monthly Salary (+)',num('salary')],['Overtime (+)',round(num('ot_hours')*num('salary')/days/Math.max(1,num('working_hours_per_day')))],['Absence Deduction (−)',round(num('absent_days')*num('salary')/days)],['Advances (−)',advances],['Loan Installment (−)',num('loan_deduction')],['Other Deduction (−)',num('other_deduction')],['Net Salary',net],['Previous Due (+)',num('overdue')],['Final Salary Paid (−)',num('paid_amount')],['Remaining Due',round(net+num('overdue')-num('paid_amount'))]]){
-   if(amount===0 && !['Monthly Salary (+)','Net Salary','Remaining Due'].includes(label))continue;
+  for(const [label,amount] of [['Monthly Salary (+)',num('salary')],['Overtime (+)',round(num('ot_hours')*num('salary')/days/Math.max(1,num('working_hours_per_day')))],['Absence Deduction (−)',round(num('absent_days')*num('salary')/days)],['This Month Advances (−)',advances],['Previous Advance Balance (−)',Number(w.carry_in||0)],['Loan Installment (−)',num('loan_deduction')],['Other Deduction (−)',num('other_deduction')],['Net Salary',net],['Previous Due (+)',num('overdue')],['Final Salary Paid (−)',num('paid_amount')],['Salary Payable',Math.max(0,round(net+num('overdue')-num('paid_amount')))],['Advance Balance to Next Month',Math.max(0,round(advances+Number(w.carry_in||0)-Math.max(0,num('salary')+round(num('ot_hours')*num('salary')/days/Math.max(1,num('working_hours_per_day')))-round(num('absent_days')*num('salary')/days)-num('loan_deduction')-num('other_deduction')+num('overdue'))))]]){
+   if(amount===0 && !['Monthly Salary (+)','Net Salary','Salary Payable','Advance Balance to Next Month'].includes(label))continue;
    const line=document.createElement('div');line.style.cssText='display:flex;justify-content:space-between;gap:12px;padding:4px 0';
    const caption=document.createElement('span'),value=document.createElement('strong');caption.textContent=label;value.textContent=money(amount);line.appendChild(caption);line.appendChild(value);preview.appendChild(line);
   }
@@ -868,10 +869,18 @@ form.elements.entry_advance_week.addEventListener('change',()=>{
 form.elements.salary_date.addEventListener('change',()=>{dateDefault=form.elements.salary_date.value;form.elements.entry_advance_date.value=dateDefault;syncWeek();});
 document.addEventListener('click',event=>{const button=event.target.closest('[data-edit-salary]');if(!button)return;const worker=workers.find(w=>String(w.id)===button.dataset.editSalary);if(!worker)return;editing=true;dept.value=worker.department;options();select.value=String(worker.id);load();message.hidden=true;document.getElementById('sm-dept-complete').hidden=true;dialog.querySelector('h4').textContent='Edit Salary — '+worker.name;document.getElementById('sm-entry-save').textContent='Save Changes';dialog.showModal();});
  document.getElementById('sm-add-salary').addEventListener('click',()=>{editing=false;dialog.querySelector('h4').textContent='Add Salary';document.getElementById('sm-entry-save').textContent='Save & Next Worker';document.getElementById('sm-dept-complete').hidden=true;options();dialog.showModal();});
+ document.getElementById('sm-add-weekly-advance').addEventListener('click',()=>{
+  editing=false;document.getElementById('sm-dept-complete').hidden=true;
+  dialog.querySelector('h4').textContent='Weekly Advance — Select Any Active Worker';
+  document.getElementById('sm-entry-save').textContent='Save & Next Worker';
+  options();const first=workers.find(w=>w.active&&(!dept.value||w.department===dept.value));
+  if(first){select.value=String(first.id);load();}
+  dialog.showModal();
+ });
  document.getElementById('sm-batch-close').addEventListener('click',()=>{if(!saving)dialog.close();});
  dialog.addEventListener('cancel',e=>{if(saving)e.preventDefault();});
  dialog.addEventListener('close',()=>{if(changed)window.location.reload();});
- dept.addEventListener('change',()=>{select.value='';pickNext();});select.addEventListener('change',load);form.addEventListener('input',preview);
+ dept.addEventListener('change',()=>{document.getElementById('sm-dept-complete').hidden=true;select.value='';options();const first=workers.find(w=>w.active&&(!dept.value||w.department===dept.value));if(first){select.value=String(first.id);load();}});select.addEventListener('change',load);form.addEventListener('input',preview);
  document.getElementById('sm-entry-add-advance').addEventListener('click',()=>{
   if(saving||!select.value)return;
   if(form.elements.entry_advance_amount.value==='' || num('entry_advance_amount')<0){message.hidden=false;message.className='alert alert-danger';message.textContent='Enter an amount of zero or more.';form.elements.entry_advance_amount.focus();return;}
@@ -891,7 +900,7 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
   try{
    const response=await fetch(form.action,{method:'POST',body:payload,headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'},credentials:'same-origin'});
    const data=await response.json();if(!response.ok)throw new Error(data.errors?Object.values(data.errors).flat().join(' '):(data.message||'Unable to save.'));
-   w.saved=true;w.data=data.row;w.advance=data.advance;w.ledger=data.ledger||[];changed=true;document.dispatchEvent(new Event('salary-record-saved'));
+   w.saved=true;w.carry_in=data.carry_in;w.data=data.row;w.advance=data.advance;w.ledger=data.ledger||[];changed=true;document.dispatchEvent(new Event('salary-record-saved'));
    if(keepWorker){load();const nextWeek=Math.min(Number(savedWeek)+1,form.elements.entry_advance_week.options.length);form.elements.entry_advance_week.value=String(nextWeek);form.elements.entry_advance_date.value=nextWeek===Number(savedWeek)?savedAdvanceDate:window.advanceWeekDate(form.elements.entry_advance_date.min.slice(0,7),nextWeek);preview();progress();renderLedger(w);message.hidden=false;message.className='alert alert-success';message.textContent='Advance saved for '+w.name+'. Select another week to add more.';return;}
    if(editing){load();message.hidden=false;message.className='alert alert-success';message.textContent=w.name+' salary updated.';return;}
    const name=w.name, keptDepartment=dept.value, keptDate=form.elements.salary_date.value;dateDefault=keptDate;fields.disabled=false;form.reset();dept.value=keptDepartment;form.elements.salary_date.value=keptDate;fields.disabled=true;select.value='';options();renderLedger(w);document.getElementById('sm-extra-details').open=false;document.getElementById('sm-entry-preview').replaceChildren();

@@ -67,7 +67,10 @@ class FundsLedger
             } elseif($source==='expenses') $entry['edit_url']=route('expenses.edit',$id);
             elseif($source==='payments') $entry['edit_url']=route('payments.edit',$id);
             elseif($source==='payrolls') $entry['edit_url']=route('payrolls.edit',$id);
-            elseif(in_array($source,['salary_management_rows','salary_management_advances'])) $entry['edit_url']=route('salary-management.index',['month'=>substr($entry['date'],0,7)]);
+            elseif(in_array($source,['salary_management_rows','salary_management_advances'])) {
+                $salaryMonth=$source==='salary_management_rows' ? DB::table('salary_management_rows')->where('id',$id)->value('month') : null;
+                $entry['edit_url']=route('salary-management.index',['month'=>substr($salaryMonth ?: $entry['date'],0,7)]);
+            }
             elseif($source==='contractor_advances') $entry['edit_url']=route('contractor-advances.index');
             elseif($source==='contractor_bill_payments') $entry['edit_url']=route('contractor-bills.index');
         }
