@@ -55,6 +55,7 @@ body{font-family:Arial,sans-serif;color:#111;margin:24px}h1{font-size:21px;text-
 .sheet-page tbody td{height:auto;vertical-align:middle}
 
 .sheet-page tfoot th{height:8mm;background:#eee}
+.sheet-page .week-date-range{display:inline-block;white-space:nowrap;font-size:7px}
 .sheet-page .cash-payable{background:#d1e7dd;color:#123e2c;font-weight:bold}
 .sheet-page .advance-balance{color:#8a4100}
 .sheet-page .payment-summary{margin:3mm 0 0;text-align:right;font-size:11px}
@@ -374,7 +375,15 @@ $advanceTotals=[];$pagePayablePaise=0;
 
 @foreach($columns as $c)<th>{{ $mode==='weeks'?'Week '.$c:\Illuminate\Support\Carbon::parse($c)->format('d/m/Y') }}
 
-@if($mode==='weeks')<br><small>Advance</small>
+@if($mode==='weeks')
+@php
+$startDay=((int)$c-1)*7+1;
+$endDay=min((int)$c*7,$month->daysInMonth);
+@endphp
+<br><small>Advance</small>
+@if($startDay<=$endDay)
+<br><small class="week-date-range">{{ $startDay }}–{{ $endDay }} {{ $month->format('M') }}</small>
+@endif
 
 @endif
 
