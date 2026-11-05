@@ -30,13 +30,16 @@
         if (str_contains($name, 'stitch')) return 'bi-scissors';
 
         return 'bi-wallet2';
-    }
+    }   
+
 
     $canShowExpenses =
         !$selectedCategory
         || !$selectedCategoryHasSubCategories
         || $selectedSubCategory;
 @endphp
+
+
 
 <div class="expenses-page">
 
@@ -74,7 +77,7 @@
                 'month' => 'Monthly',
                 'year' => 'Yearly',
                 'all' => 'All Time',
-            ] as $value => $label) 
+            ] as $value => $label)
 
                 <a href="{{ route('expenses.index', array_filter([
                     'expense_category_id' => $selectedCategory,

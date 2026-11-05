@@ -55,6 +55,10 @@ body{font-family:Arial,sans-serif;color:#111;margin:24px}h1{font-size:21px;text-
 .sheet-page tbody td{height:auto;vertical-align:middle}
 
 .sheet-page tfoot th{height:8mm;background:#eee}
+.sheet-page .cash-payable{background:#d1e7dd;color:#123e2c;font-weight:bold}
+.sheet-page .advance-balance{color:#8a4100}
+.sheet-page .payment-summary{margin:3mm 0 0;text-align:right;font-size:11px}
+.sheet-page .payment-summary strong{display:inline-block;background:#d1e7dd;padding:2mm 3mm;print-color-adjust:exact;-webkit-print-color-adjust:exact}
 
 .sheet-name{width:28mm}.sheet-department{width:17mm}.sheet-page .sign{width:18mm}
 
@@ -322,6 +326,9 @@ $payDate=!empty($r->payment_date)?\Illuminate\Support\Carbon::parse($r->payment_
 $allColumns=$mode==='weeks'?collect(range($weekStart,$weekEnd)):$dates;
 
 $columnGroups=$mode==='dates' && $allColumns->count()>5 ? $allColumns->chunk(5) : collect([$allColumns]);
+$figuresByEmployee=$employees->mapWithKeys(fn($employee)=>[$employee->id=>$rows->get($employee->id)->figures()]);
+$payablePaise=fn($figures)=>max(0,(int)round((float)$figures['due']*100));
+$sheetPayablePaise=$figuresByEmployee->sum($payablePaise);
 
 
 
@@ -341,11 +348,11 @@ $columnGroups=$mode==='dates' && $allColumns->count()>5 ? $allColumns->chunk(5) 
 
 <section class="sheet-page">
 
-<h1>{{ strtoupper($month->format('F')) }} SALARY SHEET</h1><p style="text-align:center;font-size:9px;margin:0 0 2mm">Advance detail: {{ $weekLabel }}. Salary, net and due are monthly totals.</p>
+<h1>{{ strtoupper($month->format('F')) }} SALARY SHEET</h1><p style="text-align:center;font-size:9px;margin:0 0 2mm">Advance detail: {{ $weekLabel }}. Only positive unpaid balances count toward Cash to Pay. Negative balances stay visible for reference.</p>
 
 
 
-@if($columnGroups->count()>1)<p style="font-size:11px">Advance dates · Part {{ $loop->iteration }} of {{ $columnGroups->count() }}. Monthly salary totals repeat in each part.</p>
+@if($columnGroups->count()>1)<p style="font-size:11px">Advance dates · Part {{ $loop->iteration }} of {{ $columnGroups->count() }}. Monthly balances repeat in each part; count them only once.</p>
 
 @endif
 
@@ -355,7 +362,7 @@ $columnGroups=$mode==='dates' && $allColumns->count()>5 ? $allColumns->chunk(5) 
 
 $totals=array_fill_keys(['loan','salary','advance','absent','absence','hours','ot','deduction','net','overdue','paid','due'],0);
 
-$advanceTotals=[];$outsideTotal=0;
+$advanceTotals=[];$pagePayablePaise=0;
 
 
 
@@ -377,17 +384,18 @@ $advanceTotals=[];$outsideTotal=0;
 
 
 
-<th>Selected Advance Total</th><th>Absents</th><th>Absent Amount</th><th>OT Hours</th><th>OT Amount</th><th>Deduction</th><th>Monthly Net Pay</th><th>Overdue</th><th>Final Salary Paid</th><th>Monthly Due</th><th>Sign</th></tr></thead><tbody>
+<th>Selected Advance Total</th><th>Absents</th><th>Absent Amount</th><th>OT Hours</th><th>OT Amount</th><th>Deduction</th><th>Monthly Net Pay</th><th>Overdue</th><th>Final Salary Paid</th><th>Due / Balance</th><th>Sign</th></tr></thead><tbody>
 
 @foreach($pageEmployees as $e)
 
 @php
 
-$r=$rows->get($e->id); $f=$r->figures();
+$r=$rows->get($e->id); $f=$figuresByEmployee->get($e->id);
+$pagePayablePaise+=$payablePaise($f);
 
 $values=['loan'=>$r->loan_balance,'salary'=>$r->salary,'advance'=>$weekAdvances($r)->sum('amount'),'absent'=>$r->absent_days,'absence'=>$f['absence'],'hours'=>$r->ot_hours,'ot'=>$f['ot'],'deduction'=>$r->loan_deduction+$r->other_deduction,'net'=>$f['net'],'overdue'=>$r->overdue,'paid'=>$r->paid_amount,'due'=>$f['due']];
 
-foreach($values as $key=>$v) $totals[$key]+=$v;
+foreach($values as $key=>$v) if(!in_array($key,['net','due'],true)) $totals[$key]+=$v;
 
 
 
@@ -419,7 +427,7 @@ foreach($values as $key=>$v) $totals[$key]+=$v;
 
 
 
-@foreach(['advance','absent','absence','hours','ot','deduction','net','overdue','paid','due'] as $key)<td class="money">{{ number_format($values[$key],2) }}</td>
+@foreach(['advance','absent','absence','hours','ot','deduction','net','overdue','paid','due'] as $key)<td class="money {{ $key==='due' && $values[$key]<0 ? 'advance-balance' : '' }}">{{ number_format($values[$key],2) }}</td>
 
 @endforeach
 
@@ -431,7 +439,7 @@ foreach($values as $key=>$v) $totals[$key]+=$v;
 
 
 
-</tbody><tfoot><tr><th colspan="3">Page Total</th><th>{{ number_format($totals['loan'],2) }}</th><th>{{ number_format($totals['salary'],2) }}</th>
+</tbody><tfoot><tr><th colspan="3">Page Totals</th><th>{{ number_format($totals['loan'],2) }}</th><th>{{ number_format($totals['salary'],2) }}</th>
 
 @foreach($columns as $c)<th>{{ number_format($advanceTotals[$c]??0,2) }}</th>
 
@@ -443,11 +451,19 @@ foreach($values as $key=>$v) $totals[$key]+=$v;
 
 
 
-@foreach(['advance','absent','absence','hours','ot','deduction','net','overdue','paid','due'] as $key)<th>{{ number_format($totals[$key],2) }}</th>
+@foreach(['advance','absent','absence','hours','ot','deduction','net','overdue','paid','due'] as $key)@if($key==='due')<th class="cash-payable">{{ number_format($pagePayablePaise/100,2) }}</th>
+@elseif($key==='net')<th>—</th>
+@else<th>{{ number_format($totals[$key],2) }}</th>
+@endif
 
 @endforeach
 
-<th></th></tr></tfoot></table></div><div class="signatures"><span>Prepared by: ______________</span><span>Approved by: ______________</span></div>
+<th></th></tr></tfoot></table></div>
+<div class="payment-summary"><strong>Page Cash to Pay: Rs {{ number_format($pagePayablePaise/100,2) }}</strong>
+@if($loop->last && $loop->parent->last)
+<strong>Total Cash to Pay (all employees on this report): Rs {{ number_format($sheetPayablePaise/100,2) }}</strong>
+@endif
+</div><div class="signatures"><span>Prepared by: ______________</span><span>Approved by: ______________</span></div>
 
 </section>
 
