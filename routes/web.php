@@ -91,6 +91,9 @@ Route::post(
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth')->group(function () {
+    Route::get('/house-expenses', [\App\Http\Controllers\HouseExpenseController::class, 'index'])->name('house-expenses.index');
+    Route::post('/house-expenses', [\App\Http\Controllers\HouseExpenseController::class, 'store'])->name('house-expenses.store');
+
     Route::post('/employees/{employee}/whatsapp', [\App\Http\Controllers\EmployeeWhatsAppController::class, 'send'])->middleware('throttle:10,1')->name('employees.whatsapp.send');
     Route::get('/funds-management/print', [\App\Http\Controllers\FundsManagementController::class, 'print'])->name('funds-management.print');
     Route::get('/funds-management', [\App\Http\Controllers\FundsManagementController::class, 'index'])->name('funds-management.index');

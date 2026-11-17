@@ -913,6 +913,13 @@
                     </div>
                 </div>
             @endif
+            @if(\Illuminate\Support\Facades\Route::has('house-expenses.index'))
+                <a href="{{ route('house-expenses.index') }}"
+                   class="side-link {{ request()->routeIs('house-expenses.*') ? 'active' : '' }}">
+                    <i class="bi bi-house-door-fill"></i>
+                    <span>House Expense</span>
+                </a>
+            @endif
             <div class="nav-label">Sales & Customers</div>
             {{-- Customers --}}
             @if($can('customers'))

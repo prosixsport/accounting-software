@@ -30,8 +30,7 @@
         if (str_contains($name, 'stitch')) return 'bi-scissors';
 
         return 'bi-wallet2';
-    }   
-
+    }
 
     $canShowExpenses =
         !$selectedCategory
@@ -68,7 +67,6 @@
 
     {{-- Period Filter --}}
     <div class="period-filter-card">
-
         <div class="period-tabs">
 
             @foreach([
@@ -95,7 +93,6 @@
             @endforeach
 
         </div>
-
 
         <form method="GET"
               action="{{ route('expenses.index') }}"
@@ -153,7 +150,7 @@
                     Apply
                 </button>
             @endif
-
+  
         </form>
 
     </div>
@@ -210,7 +207,6 @@
 
     {{-- Categories --}}
     <div class="category-scroll">
-
         <a href="{{ route('expenses.index', [
             'period' => $period,
             'date' => $selectedDate,
