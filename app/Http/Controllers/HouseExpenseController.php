@@ -84,6 +84,8 @@ class HouseExpenseController extends Controller
             'expense_date' => ['required', 'date_format:Y-m-d'],
             'category' => ['required', Rule::in($this->categories($request))],
             'description' => ['required', 'string', 'max:150'],
+            'money_taken_by' => ['required', 'string', 'max:100'],
+            'money_received_from' => ['required', 'string', 'max:100'],
             'location' => ['required', 'string', 'max:150'],
             'amount' => ['bail', 'required', 'numeric', 'min:0.01', 'regex:/^\d{1,9}(?:\.\d{1,2})?$/D'],
         ]);
@@ -94,6 +96,8 @@ class HouseExpenseController extends Controller
             'expense_date' => $data['expense_date'],
             'category' => $data['category'],
             'description' => $data['description'],
+            'money_taken_by' => $data['money_taken_by'],
+            'money_received_from' => $data['money_received_from'],
             'location' => $data['location'],
             'amount_paise' => (int) $rupees * 100 + (int) str_pad($paise, 2, '0'),
             'created_at' => now(),

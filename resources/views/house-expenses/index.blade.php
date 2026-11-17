@@ -81,11 +81,17 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-sm-6 col-xl">
-                <label class="form-label" for="house-description">Item / details</label>
-                <input class="form-control" id="house-description" name="description" maxlength="150" value="{{ old('description') }}" placeholder="e.g. 2 litres of milk" required>
+            <div class="col-sm-6 col-xl-3">
+                <label class="form-label" for="house-taken-by">Money taken by</label>
+                <input class="form-control" id="house-taken-by" name="money_taken_by" maxlength="100" value="{{ old('money_taken_by') }}" placeholder="e.g. Ali" required>
+                <small class="text-muted">Who took the money?</small>
             </div>
-            <div class="col-sm-6 col-xl-2">
+            <div class="col-sm-6 col-xl-3">
+                <label class="form-label" for="house-received-from">Money received from</label>
+                <input class="form-control" id="house-received-from" name="money_received_from" maxlength="100" value="{{ old('money_received_from') }}" placeholder="e.g. Bilal or House Cash" required>
+                <small class="text-muted">Who gave the money, or which fund was used?</small>
+            </div>
+            <div class="col-sm-6 col-xl-3">
                 <label class="form-label" for="house-location">Shop / place</label>
                 <input class="form-control" id="house-location" name="location" maxlength="150" value="{{ old('location') }}" placeholder="e.g. Local market" required>
             </div>
@@ -93,7 +99,11 @@
                 <label class="form-label" for="house-amount">Amount (Rs)</label>
                 <input class="form-control" id="house-amount" name="amount" type="number" min="0.01" max="999999999.99" step="0.01" value="{{ old('amount') }}" required>
             </div>
-            <div class="col-auto"><button class="btn btn-success">Add Expense</button></div>
+            <div class="col-12">
+                <label class="form-label" for="house-description">Purpose / description</label>
+                <textarea class="form-control" id="house-description" name="description" maxlength="150" rows="2" placeholder="e.g. Milk and bread for home" required>{{ old('description') }}</textarea>
+            </div>
+            <div class="col-12"><button class="btn btn-success">Add Expense</button></div>
         </form>
     </div>
 </div>
@@ -101,12 +111,12 @@
 <div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table align-middle mb-0">
-            <thead><tr><th scope="col">Category</th><th scope="col">Item / details</th><th scope="col">Shop / place</th><th scope="col" class="text-end">Amount</th></tr></thead>
+            <thead><tr><th scope="col">Category</th><th scope="col">Money taken by</th><th scope="col">Money received from</th><th scope="col">Purpose / description</th><th scope="col">Shop / place</th><th scope="col" class="text-end">Amount</th></tr></thead>
             <tbody>
                 @forelse($entries as $entry)
-                    <tr><td>{{ $entry->category }}</td><td>{{ $entry->description }}</td><td>{{ $entry->location ?: '—' }}</td><td class="text-end text-nowrap">Rs {{ $money($entry->amount_paise) }}</td></tr>
+                    <tr><td>{{ $entry->category }}</td><td>{{ $entry->money_taken_by ?? '—' }}</td><td>{{ $entry->money_received_from ?? '—' }}</td><td>{{ $entry->description }}</td><td>{{ $entry->location ?: '—' }}</td><td class="text-end text-nowrap">Rs {{ $money($entry->amount_paise) }}</td></tr>
                 @empty
-                    <tr><td colspan="4" class="text-center text-muted py-4">No expenses recorded for this date.</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">No expenses recorded for this date.</td></tr>
                 @endforelse
             </tbody>
         </table>
